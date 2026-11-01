@@ -117,7 +117,7 @@ function markdown(pid,name,price){
 }
 async function updExpBadge(){
   try{ const r=await api('/api/expiry?days='+(+SET.expiry_warn_days||3)); const n=r.items.length;
-    $('#navExp').innerHTML='Сроки'+(n?` <span class="badge" style="background:${r.expired?'#fecaca;color:#991b1b':'#fde68a;color:#92400e'}">${n}</span>`:'');
+    $('#navExp .t').innerHTML='Сроки годности'+(n?` <span class="badge" style="background:${r.expired?'#fecaca;color:#991b1b':'#fde68a;color:#92400e'}">${n}</span>`:'');
   }catch(e){}
 }
 async function setExpiry(lid,v){ try{ await api(`/api/docs/${DOC.id}/expiry`,{method:'POST',body:{line_id:lid,expiry:v}}); const l=DOC.lines.find(x=>x.id===lid); if(l) l.expiry=v; }catch(e){ toast(e.message,'err'); } }

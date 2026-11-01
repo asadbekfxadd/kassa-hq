@@ -269,9 +269,8 @@ async function loadDash(){
   const fh=hours.findIndex(x=>x.net), lh=23-[...hours].reverse().findIndex(x=>x.net);
   const line=(ic,l,v,cls,go)=>`<div class="row" style="padding:7px 0;border-bottom:1px solid var(--line);${go?'cursor:pointer':''}" ${go?`onclick="${go}"`:''}><span style="width:22px">${ic}</span><span class="grow">${l}</span><b class="${cls}">${v}</b></div>`;
   $('#dashBox').innerHTML=`
-    <div class="row wrap" style="margin-bottom:12px"><h2 class="grow" style="margin:0">Обзор · сегодня, ${r.now}</h2>
-      <span class="muted">${r.shift?`Смена №${r.shift.id} открыта ${r.shift.opened_at.slice(11,16)}`:'<span class="amber">Смена закрыта</span>'}</span>
-      <button onclick="show('reports')">Все отчёты →</button></div>
+    <div class="row wrap" style="margin-bottom:10px"><span class="grow muted">Сегодня · данные на ${r.now}, обновляются каждую минуту</span>
+      <button class="ghost" onclick="show('reports')">Все отчёты →</button></div>
     <div class="kpis">
       ${KPI('Выручка сегодня',fmt(t.net),'',vs(t.net,y.net)+' <span class="muted" style="font-size:12px">к вчера</span>')}
       ${KPI('Чеков',t.checks,'',vs(t.checks,y.checks))}

@@ -15,7 +15,7 @@ async function netStatus(){
       el.innerHTML = fresh&&!NET.error ? `🌐 <span style="color:#a7f3d0">${esc(NET.store||'Сеть')}</span>` : `🌐 <span style="color:#fecaca">нет связи</span>`;
       el.title = (NET.error?('Ошибка: '+NET.error+'\n'):'') + 'Последний обмен: '+(NET.last_ok||'никогда')+(NET.unsent?`\nНе отправлено чеков: ${NET.unsent}`:'')+'\nНажмите — синхронизировать сейчас';
     }
-    const b=$('#navRecv'); if(b) b.innerHTML = 'Поступления' + (NET.expected_docs?` <span class="badge" style="background:#fde68a;color:#92400e">${NET.expected_docs}</span>`:'');
+    const b=$('#navRecv .t'); if(b) b.innerHTML = 'Поступления' + (NET.expected_docs?` <span class="badge" style="background:#fde68a;color:#92400e">${NET.expected_docs}</span>`:'');
   }catch(e){}
 }
 setInterval(()=>{ if(ME) netStatus(); }, 30000);

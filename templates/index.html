@@ -36,20 +36,46 @@ td.n,th.n{text-align:right;white-space:nowrap}
 .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .pad button{font-size:22px;padding:16px 0}
 
-/* layout */
-header{display:flex;align-items:center;gap:6px;background:var(--brand);color:#fff;padding:6px 12px;height:50px}
-header .logo{font-weight:700;font-size:16px;margin-right:12px;white-space:nowrap}
-header nav{display:flex;gap:2px;overflow-x:auto;min-width:0;flex:1;scrollbar-width:none}
-header nav button{background:transparent;color:#e6fffb;padding:8px 8px;white-space:nowrap}
-header nav button.on{background:#ffffff26;color:#fff}
-#moreMenu{position:fixed;top:48px;background:#fff;border-radius:10px;box-shadow:0 10px 30px #0003;padding:6px;z-index:60;min-width:200px}
-#moreMenu button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);padding:10px 12px}
-#moreMenu button:hover,#moreMenu button.on{background:#f0fdfa}
+/* layout: боковая панель */
+#app:not(.hidden){display:flex;height:100%}
+#side{width:236px;flex:none;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;transition:width .15s}
+#side .brand{display:flex;align-items:center;gap:10px;padding:14px 12px 10px 16px;height:60px}
+#side .mark{width:32px;height:32px;border-radius:9px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+#side .brand b{flex:1;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#side svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#sideTgl{background:transparent;padding:6px;color:var(--muted)}
+#nav{flex:1;overflow-y:auto;padding:4px 10px 10px;scrollbar-width:thin}
+#nav .grp{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;padding:14px 10px 5px;white-space:nowrap}
+#nav button{display:flex;align-items:center;gap:11px;width:100%;background:transparent;color:#374151;padding:9px 10px;margin:1px 0;text-align:left;white-space:nowrap;border-radius:9px}
+#nav button:hover{background:#f3f4f6}
+#nav button.on{background:color-mix(in srgb,var(--brand) 12%,#fff);color:var(--brand);font-weight:600}
+#nav button .t{flex:1;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+#nav button .badge{margin-left:auto;font-size:11px;padding:1px 7px}
+.side-foot{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:10px 12px}
+.side-foot .ava{width:34px;height:34px;border-radius:50%;background:#e5e7eb;display:grid;place-items:center;font-weight:700;flex:none}
+.side-foot .un{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-foot button{background:transparent;padding:7px;color:var(--muted)}
+#app.mini #side{width:68px}
+#app.mini #side .brand b,#app.mini #nav .t,#app.mini #nav .grp,#app.mini .side-foot .grow{display:none}
+#app.mini #side .brand{padding-left:18px;flex-direction:column;height:auto;gap:6px}
+#app.mini #sideTgl svg{transform:rotate(180deg)}
+#app.mini #nav .grp{display:block;font-size:0;height:1px;padding:0;margin:9px 8px;background:var(--line)}
+#app.mini #nav .grp.hidden{display:none!important}
+#app.mini #nav button{justify-content:center;padding:10px 0;position:relative}
+#app.mini #nav button .badge{position:absolute;top:2px;right:4px}
+#app.mini .side-foot{flex-direction:column}
+#col{flex:1;min-width:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;background:var(--bg);padding:10px 16px 0;height:56px;flex:none}
+header h1{font-size:20px;margin:0;white-space:nowrap}
 header .right{margin-left:auto;display:flex;gap:8px;align-items:center;white-space:nowrap;font-size:12.5px}
-header .right button{background:#ffffff22;color:#fff;padding:6px 10px}
-#fisc{display:inline-flex;align-items:center;gap:5px} #fisc i{width:9px;height:9px;border-radius:50%;background:#9ca3af;display:inline-block}
-main{height:calc(100% - 50px);overflow:auto;padding:12px}
+header .right button{background:#fff;border:1px solid var(--line);padding:6px 10px;font-size:12.5px}
+header .pill{background:#fff;border:1px solid var(--line);border-radius:99px;padding:5px 11px}
+header .pill:empty{display:none}
+#fisc{display:inline-flex;align-items:center;gap:6px} #fisc i{width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block}
+main{flex:1;overflow:auto;padding:12px 16px 16px;min-height:0}
 .view{display:none} .view.on{display:block}
+#v-pos.on{height:100%}
+@media (max-width:1100px){#side{width:68px!important} #side .brand b,#nav button .t,.side-foot .grow,#sideTgl{display:none!important} #nav .grp{font-size:0;height:1px;padding:0;margin:9px 8px;background:var(--line)} #nav button{justify-content:center;padding:10px 0} .side-foot{flex-direction:column} #side .brand{padding-left:18px} header .right button{font-size:0} header .right button::first-letter{font-size:14px}}
 
 /* POS */
 #v-pos.on{display:grid;grid-template-columns:1fr 360px;gap:12px;height:100%}
@@ -118,33 +144,43 @@ iframe#printer{position:fixed;width:0;height:0;border:0;right:0;bottom:0}
 </div>
 
 <!-- ============ APP ============ -->
-<div id="app" class="hidden" style="height:100%">
-<header>
-  <div class="logo" id="storeName">Касса</div>
+<div id="app" class="hidden">
+<aside id="side">
+  <div class="brand"><span class="mark" id="storeMark">К</span><b id="storeName">Касса</b>
+    <button id="sideTgl" title="Свернуть / развернуть меню"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button></div>
   <nav id="nav">
-    <button data-v="dash" data-admin>Обзор</button>
-    <button data-v="pos">Касса</button>
-    <button data-v="sales">Чеки</button>
-    <button data-v="customers">Клиенты</button>
-    <button data-v="products" data-admin>Товары</button>
-    <button data-v="receive" id="navRecv">Поступления</button>
-    <button data-v="purchase" data-admin data-more>Приход</button>
-    <button data-v="expiry" id="navExp">Сроки</button>
-    <button data-v="suppliers" data-admin data-more>Поставщики</button>
-    <button data-v="promos" data-admin data-more>Акции и цены</button>
-    <button data-v="inventory" data-admin data-more>Ревизия</button>
-    <button data-v="reports" data-admin>Отчёты</button>
-    <button data-v="shifts">Смена</button>
-    <button data-v="audit" data-admin data-more>Журнал</button>
-    <button data-v="settings" data-admin data-more>Настройки</button>
+    <div class="grp">Главное</div>
+    <button data-v="dash" data-admin title="Обзор"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="t">Обзор</span></button>
+    <button data-v="pos" title="Касса"><svg viewBox="0 0 24 24"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg><span class="t">Касса</span></button>
+    <div class="grp">Продажи</div>
+    <button data-v="sales" title="Чеки и возвраты"><svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg><span class="t">Чеки и возвраты</span></button>
+    <button data-v="shifts" title="Смена и касса"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="t">Смена и касса</span></button>
+    <button data-v="customers" title="Клиенты"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="t">Клиенты</span></button>
+    <button data-v="promos" data-admin title="Акции и цены"><svg viewBox="0 0 24 24"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg><span class="t">Акции и цены</span></button>
+    <div class="grp">Склад</div>
+    <button data-v="products" data-admin title="Товары"><svg viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><span class="t">Товары</span></button>
+    <button data-v="receive" id="navRecv" title="Поступления"><svg viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span class="t">Поступления</span></button>
+    <button data-v="purchase" data-admin title="Приход"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4"/></svg><span class="t">Приход</span></button>
+    <button data-v="inventory" data-admin title="Ревизия"><svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg><span class="t">Ревизия</span></button>
+    <button data-v="expiry" id="navExp" title="Сроки годности"><svg viewBox="0 0 24 24"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22"/><path d="M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2"/></svg><span class="t">Сроки годности</span></button>
+    <button data-v="suppliers" data-admin title="Поставщики"><svg viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62L18.3 9.38a1 1 0 0 0-.78-.38H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg><span class="t">Поставщики</span></button>
+    <div class="grp">Аналитика</div>
+    <button data-v="reports" data-admin title="Отчёты"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span class="t">Отчёты</span></button>
+    <button data-v="audit" data-admin title="Журнал действий"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg><span class="t">Журнал действий</span></button>
+    <div class="grp">Система</div>
+    <button data-v="settings" data-admin title="Настройки"><svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span class="t">Настройки</span></button>
   </nav>
+  <div class="side-foot"><div class="ava" id="userAva">А</div><div class="grow" style="min-width:0"><div id="userLbl" class="un"></div><div class="muted" id="userRole" style="font-size:11px"></div></div>
+    <button onclick="logout()" title="Выйти"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button></div>
+</aside>
+<div id="col">
+<header>
+  <h1 id="pageTitle">Касса</h1>
   <div class="right">
-    <button onclick="openDisplay()" title="Экран покупателя (второй монитор)">🖥</button>
-    <span id="netSt" class="hidden" style="cursor:pointer" onclick="netSyncNow()" title="Связь с Центром — нажмите, чтобы синхронизировать"></span>
-    <span id="fisc" title="Состояние фискального модуля"><i></i><span>ФМ</span></span>
-    <span id="shiftLbl"></span>
-    <span id="userLbl"></span>
-    <button onclick="logout()">Выход</button>
+    <button onclick="openDisplay()" title="Экран покупателя (второй монитор)">🖥 Экран покупателя</button>
+    <span id="netSt" class="hidden pill" style="cursor:pointer" onclick="netSyncNow()" title="Связь с Центром — нажмите, чтобы синхронизировать"></span>
+    <span id="fisc" class="pill" title="Состояние фискального модуля"><i></i><span>ФМ</span></span>
+    <span id="shiftLbl" class="pill"></span>
   </div>
 </header>
 
@@ -537,6 +573,7 @@ iframe#printer{position:fixed;width:0;height:0;border:0;right:0;bottom:0}
   </div>
 </section>
 </main>
+</div><!-- /col -->
 </div>
 
 <div id="modalRoot"></div>
@@ -1165,5 +1202,6 @@ function genKey(){
 <script src="/static/network.js"></script>
 <script src="/static/grocery.js"></script>
 <script src="/static/lume.js"></script>
+<script src="/static/shell.js"></script>
 </body>
 </html>
