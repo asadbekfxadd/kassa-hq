@@ -60,7 +60,7 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:5px;font-size:12px;word-br
   <div class="logo">ЦЕНТР <span>сети</span></div>
   <nav id="nav">
     <button data-v="dash">Обзор</button><button data-v="docs">Накладные</button><button data-v="stock">Остатки</button>
-    <button data-v="catalog">Каталог</button><button data-v="sales">Продажи</button><button data-v="stores">Магазины</button>
+    <button data-v="catalog">Каталог</button><button data-v="sales">Продажи</button><button data-v="stores">Магазины</button><button data-v="migrate">Переезд</button>
   </nav>
   <button class="ghost" style="color:#fff;border-color:#334155" onclick="logout()">Выход</button>
 </header>
@@ -115,6 +115,19 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:5px;font-size:12px;word-br
     </div>
   </section>
 
+  <section class="view" id="v-migrate">
+    <div class="card">
+      <h2>Переезд из другой программы</h2>
+      <p class="muted" style="margin-top:0">1С, BILLZ, МойСклад, Regos или любой Excel. Выгрузите отчёт в Excel/CSV — система сама найдёт заголовки и колонки.
+        Рекомендуемый порядок: <b>1. Товары → 2. Остатки → 3. Клиенты → 4. История продаж</b>.</p>
+      <div id="mgKinds" class="kpis" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))"></div>
+    </div>
+    <div class="card hidden" id="mgStep" style="margin-top:12px"></div>
+    <div class="card" style="margin-top:12px"><b>Загруженные данные</b>
+      <table style="margin-top:6px"><thead><tr><th>Дата</th><th>Что</th><th>Файл</th><th class="n">Строк</th><th class="n">Создано</th><th class="n">Обновлено</th><th class="n">Пропущено</th><th>Доставка в кассы</th></tr></thead><tbody id="mgHist"></tbody></table>
+    </div>
+  </section>
+
   <section class="view" id="v-stores">
     <div class="card">
       <div class="row" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Магазины</h2><button class="p" onclick="editStore()">+ Магазин</button></div>
@@ -165,7 +178,7 @@ async function boot(){
 }
 $$('#nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
 function show(v){ $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v)); $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
-  ({dash:loadDash,docs:loadDocs,stock:loadStock,catalog:loadCat,sales:initSales,stores:loadStores})[v](); }
+  ({dash:loadDash,docs:loadDocs,stock:loadStock,catalog:loadCat,sales:initSales,stores:loadStores,migrate:loadMig})[v](); }
 
 // ---------------- dashboard
 async function loadDash(){
@@ -308,6 +321,78 @@ function newDoc(type){
     m.remove(); toast('Накладная отправлена в магазин','ok'); loadDocs(); }catch(e){ toast(e.message,'err'); } };
   draw();
 }
+// ---------------- migrate
+let MK=null, MG=null;
+const MG_HINT={products:'Наименование, штрихкод, артикул, цены, категория, ИКПУ. Существующие товары обновятся по штрихкоду.',
+  stock:'Остатки на дату переезда. Колонка «Магазин/Склад» раскладывает по магазинам, или выберите один магазин.',
+  customers:'Имя, телефон, карта, бонусы, долг (насия), скидка. Балансы перенесутся в кассу магазина.',
+  sales:'Дата, товар, количество, сумма. Нужно для отчётов и автозаказа с первого дня.'};
+const MG_ICON={products:'📦',stock:'🏬',customers:'👥',sales:'📈'};
+async function loadMig(){
+  if(!MK) MK=(await api('/api/migrate/kinds')).kinds;
+  STORES=await api('/api/stores');
+  $('#mgKinds').innerHTML=['products','stock','customers','sales'].map(k=>[k,MK[k]]).map(([k,v],i)=>`<div class="card" style="border:1px solid var(--line)"><div style="font-size:26px">${MG_ICON[k]}</div><b>${i+1}. ${esc(v.title)}</b>
+    <div class="muted" style="font-size:12px;min-height:48px;margin:4px 0 8px">${MG_HINT[k]}</div><button class="p" style="width:100%" onclick="mgPick('${k}')">Загрузить файл</button></div>`).join('');
+  const h=await api('/api/migrate');
+  $('#mgHist').innerHTML=h.map(r=>`<tr><td>${r.created_at.slice(0,16)}</td><td>${MG_ICON[r.kind]} ${esc(r.title)}</td><td class="muted">${esc(r.filename)}</td><td class="n">${r.result.rows||0}</td>
+    <td class="n green">${r.result.created||0}</td><td class="n">${r.result.updated||0}</td><td class="n ${r.result.skipped?'amber':''}">${r.result.skipped||0}</td>
+    <td>${r.kind==='products'?'<span class="muted">через каталог</span>':r.pending?`<span class="badge pend">ожидает кассы: ${r.pending}</span>`:'<span class="badge ok">доставлено ✓</span>'}</td></tr>`).join('')||'<tr><td colspan="8" class="muted">Пока ничего не загружено</td></tr>';
+}
+function mgPick(kind){ const i=document.createElement('input'); i.type='file'; i.accept='.xlsx,.xlsm,.csv,.txt';
+  i.onchange=async()=>{ const fd=new FormData(); fd.append('file',i.files[0]); fd.append('kind',kind);
+    try{ toast('Читаю файл…'); MG=await api('/api/migrate/upload',{method:'POST',body:fd}); mgMap(); }catch(e){ toast(e.message,'err'); } };
+  i.click(); }
+function mgMap(){
+  const spec=MK[MG.kind], el=$('#mgStep'); el.classList.remove('hidden');
+  const colOpts=sel=>`<option value="">— нет —</option>`+MG.headers.map((h,i)=>`<option value="${i}" ${String(sel)===String(i)?'selected':''}>${esc(h||('Колонка '+(i+1)))}</option>`).join('');
+  const sample=i=>MG.sample.slice(0,3).map(r=>r[i]).filter(v=>v!==null&&v!=='').map(v=>esc(String(v).slice(0,24))).join(' · ');
+  const needStore=MG.kind!=='products';
+  el.innerHTML=`<div class="row"><h2 class="grow" style="margin:0">${MG_ICON[MG.kind]} ${esc(spec.title)}: сопоставление колонок</h2><button class="ghost" onclick="$('#mgStep').classList.add('hidden')">✕</button></div>
+    <div class="muted">Найдено строк: <b>${MG.total}</b> · заголовки в строке ${MG.header_row}. Колонки определены автоматически — проверьте.</div>
+    <table style="margin-top:10px"><thead><tr><th>Поле системы</th><th>Колонка в файле</th><th>Пример значений</th></tr></thead><tbody>
+    ${spec.fields.map(f=>`<tr><td>${esc(f.label)}${f.required?' <span class="red">*</span>':''}${spec.one_of.includes(f.key)?' <span class="muted" title="Нужно хотя бы одно из полей">◆</span>':''}</td>
+      <td><select data-f="${f.key}" style="min-width:220px">${colOpts(MG.mapping[f.key])}</select></td><td class="muted" id="smp-${f.key}">${MG.mapping[f.key]!==undefined?sample(MG.mapping[f.key]):''}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="muted" style="font-size:12px">◆ — нужно хотя бы одно: ${spec.one_of.map(k=>esc(spec.fields.find(f=>f.key===k).label)).join(', ')||'—'}</div>
+    <div class="grid3" style="margin-top:10px">
+      ${needStore?`<div><label>Магазин (если в файле нет колонки «Магазин»)</label><select id="mgStore"><option value="">— из колонки файла —</option>${STORES.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></div>
+        <div><label>Неизвестные магазины из файла</label><select id="mgCS"><option value="">Пропускать строки</option><option value="1">Создать магазины</option></select></div>`:''}
+      ${MG.kind==='stock'?`<div><label>Режим</label><select id="mgMode"><option value="set">Заменить остаток (на дату переезда)</option><option value="add">Прибавить к текущему</option></select></div>`:''}
+      ${['stock','sales'].includes(MG.kind)?`<div><label>Товары, которых нет в каталоге</label><select id="mgCP"><option value="">Пропускать</option><option value="1">Создать из файла</option></select></div>`:''}
+      ${MG.kind==='products'?`<div><label>Если товар уже есть (по штрихкоду)</label><select id="mgUE"><option value="1">Обновить</option><option value="">Не трогать</option></select></div>`:''}
+    </div>
+    <div class="actions"><button onclick="mgRun(false)">🔍 Проверить</button><button class="p" onclick="mgRun(true)">Загрузить</button></div>
+    <div id="mgRes"></div>`;
+  el.querySelectorAll('[data-f]').forEach(s=>s.onchange=()=>{ $('#smp-'+s.dataset.f).innerHTML=s.value===''?'':sample(+s.value); });
+  el.scrollIntoView({behavior:'smooth'});
+}
+async function mgRun(apply){
+  const mapping={}; $$('#mgStep [data-f]').forEach(s=>{ if(s.value!=='') mapping[s.dataset.f]=+s.value; });
+  const options={store_id:$('#mgStore')?.value||'', create_stores:!!$('#mgCS')?.value, mode:$('#mgMode')?.value, create_products:!!$('#mgCP')?.value, update_existing:$('#mgUE')?!!$('#mgUE').value:true};
+  if(apply && !confirm('Загрузить данные? Это изменит каталог/остатки.')) return;
+  try{
+    const r=await api(`/api/migrate/${MG.id}/${apply?'apply':'check'}`,{method:'POST',body:{mapping,options}});
+    const ps=Object.entries(r.per_store||{});
+    $('#mgRes').innerHTML=`<div class="card" style="margin-top:12px;background:${apply?'#f0fdf4':'#f9fafb'}">
+      <b>${apply?'✅ Загружено':'Результат проверки (ничего не записано)'}</b>
+      <div class="kpis" style="margin-top:8px">
+        <div class="card kpi"><div class="l">Строк в файле</div><div class="v">${r.rows}</div></div>
+        <div class="card kpi"><div class="l">${MG.kind==='products'?'Новых товаров':'Будет загружено'}</div><div class="v green">${r.created}</div></div>
+        ${MG.kind==='products'?`<div class="card kpi"><div class="l">Обновится</div><div class="v">${r.updated}</div></div>`:''}
+        <div class="card kpi"><div class="l">Пропущено</div><div class="v ${r.skipped?'amber':''}">${r.skipped}</div></div>
+        ${r.products_created?`<div class="card kpi"><div class="l">Создано товаров</div><div class="v">${r.products_created}</div></div>`:''}
+        ${MG.kind!=='products'&&r.sum?`<div class="card kpi"><div class="l">${MG.kind==='stock'?'Всего штук':MG.kind==='customers'?'Сумма долгов':'Сумма продаж'}</div><div class="v">${fmt(r.sum)}</div></div>`:''}
+      </div>
+      ${ps.length?`<div style="margin-top:8px">По магазинам: ${ps.map(([k,v])=>`<span class="badge blue">${esc(k)}: ${v}</span>`).join(' ')}</div>`:''}
+      ${r.stores_missing.length?`<div class="red" style="margin-top:8px">Не найдены магазины: ${r.stores_missing.map(esc).join(', ')} — создайте их или выберите «Создать магазины».</div>`:''}
+      ${r.stores_created.length?`<div style="margin-top:8px">Созданы магазины: ${r.stores_created.map(esc).join(', ')} — подключите их кассы токенами.</div>`:''}
+      ${r.errors.length?`<details style="margin-top:8px" ${apply?'':'open'}><summary><b class="amber">Замечания: ${r.errors.length}${r.errors.length>=300?'+':''}</b></summary><div style="max-height:240px;overflow:auto"><table>${r.errors.map(e=>`<tr><td class="muted">стр. ${e.row}</td><td>${esc(e.msg)}</td></tr>`).join('')}</table></div></details>`:''}
+      ${apply&&MG.kind!=='products'?'<p class="muted">Кассы магазинов получат эти данные при следующей синхронизации (до минуты). Статус — в таблице ниже.</p>':''}
+    </div>`;
+    if(apply){ $$('#mgStep .actions button').forEach(b=>b.disabled=true); loadMig(); }
+  }catch(e){ toast(e.message,'err'); }
+}
+
 setInterval(()=>{ if($('#v-dash').classList.contains('on')&&!$('#mroot .modal')) loadDash(); },60000);
 boot();
 </script>

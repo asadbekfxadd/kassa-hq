@@ -115,6 +115,9 @@ class _PgConn:
     def commit(self):
         self.c.commit()
 
+    def rollback(self):
+        self.c.rollback()
+
     def close(self):
         try:
             self.c.rollback()
@@ -726,8 +729,9 @@ def sync():
                        (st["id"], st["id"])).fetchall():
         incoming.append(load_doc(r["uid"], c))
     stores_list = [dict(r) for r in c.execute("SELECT uid, name FROM stores WHERE active=1 AND id<>?", (st["id"],))]
+    pending = migrate.pending_for(c, st["id"])
     c.close()
-    return jsonify(acks=acks, products=products, docs=incoming, stores=stores_list, server_time=t,
+    return jsonify(acks=acks, products=products, docs=incoming, stores=stores_list, server_time=t, pending=pending,
                    store={"uid": st["uid"], "name": st["name"]})
 
 
@@ -735,6 +739,10 @@ def sync():
 def health():
     return jsonify(ok=True, time=now())
 
+
+import sys  # noqa: E402
+import migrate  # noqa: E402
+migrate.register(sys.modules[__name__])
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
