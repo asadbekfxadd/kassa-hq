@@ -29,6 +29,7 @@
   <div class="row"><span>Сумма</span><span>{{ m(r.sales.total) }}</span></div>
   <div class="row"><span>  наличные</span><span>{{ m(r.sales.cash) }}</span></div>
   <div class="row"><span>  карта</span><span>{{ m(r.sales.card) }}</span></div>
+  {% if r.sales.qr %}<div class="row"><span>  QR (Click/Payme)</span><span>{{ m(r.sales.qr) }}</span></div>{% endif %}
   <div class="row"><span>  скидки</span><span>{{ m(r.sales.discount) }}</span></div>
   <hr>
   <div class="b">ВОЗВРАТЫ</div>
@@ -36,6 +37,7 @@
   <div class="row"><span>Сумма</span><span>{{ m(r.refunds.total) }}</span></div>
   <div class="row"><span>  наличные</span><span>{{ m(r.refunds.cash) }}</span></div>
   <div class="row"><span>  карта</span><span>{{ m(r.refunds.card) }}</span></div>
+  {% if r.refunds.qr %}<div class="row"><span>  QR</span><span>{{ m(r.refunds.qr) }}</span></div>{% endif %}
   <hr>
   {% if r.ops %}
   <div class="b">ДВИЖЕНИЕ НАЛИЧНЫХ</div>

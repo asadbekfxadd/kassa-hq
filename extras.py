@@ -313,6 +313,7 @@ def customer_save():
     if u["role"] == "admin":
         fields["discount_pct"] = M.num(d.get("discount_pct"))
         fields["debt_limit"] = M.num(d.get("debt_limit"))
+        fields["price_type"] = "wholesale" if d.get("price_type") == "wholesale" else "retail"
     con = db.connect()
     try:
         if d.get("id"):

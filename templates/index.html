@@ -85,6 +85,12 @@ button kbd{background:#ffffff40;border-color:#ffffff60;color:inherit} button:not
 
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
 .kpi .v{font-size:22px;font-weight:700} .kpi .l{font-size:12px;color:var(--muted)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 12px;border-bottom:1px solid var(--line)}
+.tabs button{background:transparent;border-radius:8px 8px 0 0;padding:9px 14px;color:var(--muted)}
+.tabs button.on{background:var(--card);color:var(--text);font-weight:600;box-shadow:0 -2px 0 var(--brand) inset}
+.chg{font-size:12px;font-weight:600} .chg.up{color:var(--green)} .chg.dn{color:var(--red)}
+.heat td{padding:0;border:2px solid var(--card);height:22px;min-width:20px;text-align:center;font-size:10px}
+.qrb{background:#7c3aed;color:#fff}
 .bars{display:flex;align-items:flex-end;justify-content:center;gap:3px;height:140px;padding-top:6px}
 .bars div{flex:1;max-width:42px;background:var(--brand);border-radius:3px 3px 0 0;min-height:2px;position:relative}
 .bars div:hover::after{content:attr(data-t);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:3px 6px;border-radius:4px;font-size:11px;white-space:nowrap}
@@ -116,6 +122,7 @@ iframe#printer{position:fixed;width:0;height:0;border:0;right:0;bottom:0}
 <header>
   <div class="logo" id="storeName">Касса</div>
   <nav id="nav">
+    <button data-v="dash" data-admin>Обзор</button>
     <button data-v="pos">Касса</button>
     <button data-v="sales">Чеки</button>
     <button data-v="customers">Клиенты</button>
@@ -124,6 +131,7 @@ iframe#printer{position:fixed;width:0;height:0;border:0;right:0;bottom:0}
     <button data-v="purchase" data-admin data-more>Приход</button>
     <button data-v="expiry" id="navExp">Сроки</button>
     <button data-v="suppliers" data-admin data-more>Поставщики</button>
+    <button data-v="promos" data-admin data-more>Акции и цены</button>
     <button data-v="inventory" data-admin data-more>Ревизия</button>
     <button data-v="reports" data-admin>Отчёты</button>
     <button data-v="shifts">Смена</button>
@@ -169,6 +177,7 @@ iframe#printer{position:fixed;width:0;height:0;border:0;right:0;bottom:0}
     <div class="paybtns">
       <button class="g" onclick="openPay('cash')">Наличные <kbd>F2</kbd></button>
       <button class="b" onclick="openPay('card')">Карта <kbd>F3</kbd></button>
+      <button class="qrb" onclick="openPay('qr')">QR Click/Payme <kbd style="background:#ffffff33;color:#fff;border-color:#ffffff66">Shift+F3</kbd></button>
       <button class="p" onclick="openPay('mixed')">Смешанная <kbd>F4</kbd></button>
       <button onclick="checkDiscount()">Скидка на чек <kbd>F8</kbd></button>
       <button onclick="openPay('debt')">Насия (в долг) <kbd>F6</kbd></button>
@@ -218,6 +227,7 @@ iframe#printer{position:fixed;width:0;height:0;border:0;right:0;bottom:0}
       <input type="file" id="impFile" class="hidden" accept=".csv,.xlsx,.xlsm">
       <a href="/api/products/export.csv"><button>Экспорт CSV</button></a>
       <button onclick="printLabelsSelected()">🏷 Ценники</button>
+      <button data-admin onclick="revalueDialog()">↕ Переоценка</button>
     </div>
     <div class="tbl-wrap"><table>
       <thead><tr><th><input type="checkbox" id="pAll" style="width:auto"></th><th>Наименование</th><th>Штрихкод</th><th>Категория</th><th>ИКПУ</th><th class="n">Себест.</th><th class="n">Цена</th><th class="n">Наценка</th><th class="n">Остаток</th><th></th></tr></thead>
@@ -277,8 +287,15 @@ iframe#printer{position:fixed;width:0;height:0;border:0;right:0;bottom:0}
     <h2 class="grow" style="margin:0">Отчёты</h2>
     <button onclick="setRange(0)">Сегодня</button><button onclick="setRange(6)">7 дней</button><button onclick="setRange(29)">30 дней</button><button onclick="setRange('m')">Этот месяц</button>
     <input type="date" id="rFrom" style="width:150px"><input type="date" id="rTo" style="width:150px">
-    <button class="p" onclick="loadReport()">Показать</button>
+    <button class="p" onclick="repReload()">Показать</button>
+    <button onclick="repExport()" id="repXls" title="Скачать текущий отчёт в Excel">⬇ Excel</button>
   </div>
+  <div class="tabs" id="repTabs">
+    <button data-t="main" class="on">Сводка</button><button data-t="sales">Продажи</button><button data-t="products">Товары ABC/XYZ</button>
+    <button data-t="movement">Оборотная ведомость</button><button data-t="profit">Прибыль и расходы</button><button data-t="staff">Сотрудники</button><button data-t="vat">НДС</button>
+  </div>
+  <div id="repOther" class="hidden"></div>
+  <div id="repMain">
   <div class="kpis" id="kpis"></div>
   <div class="grid2" style="margin-top:12px;gap:12px">
     <div class="card"><b>Выручка по дням</b><div class="bars" id="barsDay"></div></div>
@@ -292,6 +309,20 @@ iframe#printer{position:fixed;width:0;height:0;border:0;right:0;bottom:0}
     <div class="card" style="grid-column:1/-1"><div class="row"><b class="grow">ABC-анализ за период</b><span class="muted" id="abcSum"></span></div>
       <div class="tbl-wrap" style="max-height:360px"><table><thead><tr><th>Класс</th><th>Товар</th><th class="n">Кол-во</th><th class="n">Выручка</th><th class="n">Доля</th><th class="n">Накопл.</th><th class="n">Прибыль</th></tr></thead><tbody id="abcBody"></tbody></table></div></div>
     <div class="card"><b class="amber">Неликвид: нет продаж 30 дней</b><table><thead><tr><th>Товар</th><th class="n">Остаток</th><th class="n">Заморожено</th></tr></thead><tbody id="rDead"></tbody></table></div>
+  </div>
+  </div>
+</section>
+
+<!-- DASHBOARD -->
+<section class="view" id="v-dash"><div id="dashBox"></div></section>
+
+<!-- PROMOS -->
+<section class="view" id="v-promos">
+  <div class="card">
+    <div class="row wrap" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Акции</h2>
+      <button onclick="revalueHistory()">История переоценок</button><button class="p" onclick="editPromo()">+ Акция</button></div>
+    <p class="muted" style="margin-top:0">Скидка % или «N+M в подарок» на товары, категории или весь магазин. Можно ограничить датами, часами («счастливые часы») и днями недели. Касса применяет лучшую акцию автоматически — кассиру ничего нажимать не нужно.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Акция</th><th>Условие</th><th>На что</th><th>Когда</th><th>Статус</th><th></th></tr></thead><tbody id="promoBody"></tbody></table></div>
   </div>
 </section>
 
@@ -1133,5 +1164,6 @@ function genKey(){
 <script src="/static/extra.js"></script>
 <script src="/static/network.js"></script>
 <script src="/static/grocery.js"></script>
+<script src="/static/lume.js"></script>
 </body>
 </html>

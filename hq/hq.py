@@ -160,9 +160,10 @@ def init():
                     if PG else SCHEMA)
     c.commit()
     # новые колонки для уже существующей базы
-    for col in ("requires_marking", "restrict_kind", "shelf_days"):
+    for col, typ in (("requires_marking", "INTEGER DEFAULT 0"), ("restrict_kind", "INTEGER DEFAULT 0"),
+                     ("shelf_days", "INTEGER DEFAULT 0"), ("wholesale_price", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0")):
         try:
-            c.execute(f"ALTER TABLE products ADD COLUMN {col} INTEGER DEFAULT 0")
+            c.execute(f"ALTER TABLE products ADD COLUMN {col} {typ}")
             c.commit()
         except Exception:
             c.rollback() if hasattr(c, "rollback") else None
@@ -252,7 +253,8 @@ def store_new_token(sid):
 
 # ================================================================ catalog
 PFIELDS = ["name", "barcode", "sku", "category", "unit_name", "units_code", "spic", "package_code", "owner_type",
-           "vat_percent", "cost_price", "price", "min_stock", "active", "requires_marking", "restrict_kind", "shelf_days"]
+           "vat_percent", "cost_price", "price", "min_stock", "active", "requires_marking", "restrict_kind", "shelf_days",
+           "wholesale_price"]
 
 
 def clean_p(d):
@@ -260,7 +262,7 @@ def clean_p(d):
     for k in PFIELDS:
         if k in d:
             v = d[k]
-            if k in ("cost_price", "price", "min_stock"):
+            if k in ("cost_price", "price", "min_stock", "wholesale_price"):
                 v = num(v)
             elif k in ("units_code", "owner_type", "vat_percent", "active", "requires_marking", "restrict_kind", "shelf_days"):
                 v = int(num(v, 1 if k == "active" else 0))

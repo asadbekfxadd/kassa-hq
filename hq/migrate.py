@@ -43,11 +43,12 @@ F = {
     "total": ["сумма", "выручка", "сумма продажи", "сумма продаж", "total", "summa"],
     "receipt": ["чек", "номер чека", "№ чека", "документ", "receipt"],
     "shelf_days": ["срок годности", "срок годности дней", "срок хранения", "годность"],
+    "wholesale_price": ["оптовая цена", "цена опт", "опт", "wholesale"],
 }
 KINDS = {
     "products": {"title": "Товары (каталог)",
                  "fields": ["name", "barcode", "sku", "category", "price", "cost_price", "spic", "package_code", "units_code",
-                            "vat_percent", "unit_name", "min_stock", "shelf_days"], "required": ["name"]},
+                            "vat_percent", "unit_name", "min_stock", "shelf_days", "wholesale_price"], "required": ["name"]},
     "stock": {"title": "Остатки по магазинам", "fields": ["barcode", "sku", "name", "qty", "store", "price", "cost_price", "category"],
               "required": ["qty"], "one_of": ["barcode", "sku", "name"]},
     "customers": {"title": "Клиенты, бонусы и долги", "fields": ["customer", "phone", "card", "bonus", "debt", "discount_pct", "birthday", "store"],
@@ -60,7 +61,7 @@ LABELS = {"name": "Наименование", "barcode": "Штрихкод", "sk
           "vat_percent": "НДС %", "unit_name": "Ед. изм.", "min_stock": "Мин. остаток", "qty": "Количество / остаток",
           "store": "Магазин / склад", "phone": "Телефон", "customer": "Имя клиента", "card": "№ карты", "bonus": "Бонусы",
           "debt": "Долг (насия)", "discount_pct": "Скидка %", "birthday": "День рождения", "date": "Дата", "total": "Сумма",
-          "receipt": "№ чека", "shelf_days": "Срок годности, дней"}
+          "receipt": "№ чека", "shelf_days": "Срок годности, дней", "wholesale_price": "Оптовая цена"}
 
 MIG_SCHEMA = """
 CREATE TABLE IF NOT EXISTS imports (
@@ -339,7 +340,7 @@ def process(kind, rows, mapping, opts, c, import_id):
                 v = code(get(r, mapping, f))
                 if v:
                     vals[f] = v
-            for f in ("price", "cost_price", "min_stock"):
+            for f in ("price", "cost_price", "min_stock", "wholesale_price"):
                 if f in mapping:
                     vals[f] = num(get(r, mapping, f))
             for f in ("units_code", "vat_percent", "shelf_days"):

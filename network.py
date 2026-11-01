@@ -123,7 +123,7 @@ def _sync():
                 "vat_percent": p.get("vat_percent") or 0, "cost_price": p.get("cost_price") or 0,
                 "price": p.get("price") or 0, "active": p.get("active", 1), "hq": 1,
                 "requires_marking": p.get("requires_marking") or 0, "restrict_kind": p.get("restrict_kind") or 0,
-                "shelf_days": p.get("shelf_days") or 0}
+                "shelf_days": p.get("shelf_days") or 0, "wholesale_price": p.get("wholesale_price") or 0}
         ex = con.execute("SELECT id FROM products WHERE uid=?", (p["uid"],)).fetchone()
         if not ex and vals["barcode"]:
             ex = con.execute("SELECT id FROM products WHERE barcode=?", (vals["barcode"],)).fetchone()

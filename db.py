@@ -238,6 +238,28 @@ CREATE TABLE IF NOT EXISTS supplier_ops (
     method TEXT, ref_id INTEGER, note TEXT, user_id INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS promos (                  -- акции
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,                          -- percent | nplus
+    value REAL DEFAULT 0,                        -- % скидки
+    n INTEGER DEFAULT 0, m INTEGER DEFAULT 0,    -- купи N, M в подарок
+    products TEXT DEFAULT '[]', categories TEXT DEFAULT '[]',   -- пусто в обоих = на всё
+    date_from TEXT, date_to TEXT, time_from TEXT, time_to TEXT,
+    weekdays TEXT DEFAULT '',                    -- "1,2,3" (1=пн), пусто = все дни
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS revaluations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL, user_id INTEGER, note TEXT, lines INTEGER, diff_sum REAL
+);
+CREATE TABLE IF NOT EXISTS revaluation_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    revaluation_id INTEGER NOT NULL, product_id INTEGER NOT NULL,
+    old_price REAL, new_price REAL, stock REAL
+);
+
 CREATE TABLE IF NOT EXISTS parked (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL,
@@ -267,6 +289,10 @@ MIGRATIONS = [
     ("purchases", "paid", "REAL NOT NULL DEFAULT 0"),
     ("purchases", "due_date", "TEXT"),
     ("doc_lines", "expiry", "TEXT"),
+    ("products", "wholesale_price", "REAL NOT NULL DEFAULT 0"),
+    ("customers", "price_type", "TEXT NOT NULL DEFAULT 'retail'"),   # retail | wholesale
+    ("sales", "qr", "REAL NOT NULL DEFAULT 0"),
+    ("sale_items", "promo", "TEXT"),
 ]
 
 # uid для синхронизации, отметка изменения остатка, повторная отправка при смене статуса ФМ

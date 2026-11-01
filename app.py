@@ -266,7 +266,7 @@ def product_by_barcode(code):
 
 PRODUCT_FIELDS = ["name", "barcode", "sku", "category_id", "unit_name", "units_code", "spic", "package_code",
                   "owner_type", "vat_percent", "cost_price", "price", "min_stock", "requires_marking", "restrict_kind",
-                  "shelf_days", "quick", "supplier_id"]
+                  "shelf_days", "quick", "supplier_id", "wholesale_price"]
 
 
 def _clean_product(d):
@@ -275,7 +275,7 @@ def _clean_product(d):
         if k not in d:
             continue
         v = d[k]
-        if k in ("cost_price", "price", "min_stock"):
+        if k in ("cost_price", "price", "min_stock", "wholesale_price"):
             v = num(v)
         elif k in ("units_code", "owner_type", "vat_percent", "requires_marking", "restrict_kind", "shelf_days", "quick"):
             v = int(num(v))
@@ -534,11 +534,11 @@ def shift_report(sid):
     if not sh:
         return None
     agg = q("""SELECT operation, COUNT(*) n, COALESCE(SUM(total),0) total, COALESCE(SUM(cash),0) cash,
-                      COALESCE(SUM(card),0) card, COALESCE(SUM(discount),0) discount
+                      COALESCE(SUM(card),0) card, COALESCE(SUM(qr),0) qr, COALESCE(SUM(discount),0) discount
                FROM sales WHERE shift_id=? GROUP BY operation""", (sid,))
     a = {r["operation"]: r for r in agg}
-    sale = a.get("sale", {"n": 0, "total": 0, "cash": 0, "card": 0, "discount": 0})
-    ref = a.get("refund", {"n": 0, "total": 0, "cash": 0, "card": 0, "discount": 0})
+    sale = a.get("sale", {"n": 0, "total": 0, "cash": 0, "card": 0, "qr": 0, "discount": 0})
+    ref = a.get("refund", {"n": 0, "total": 0, "cash": 0, "card": 0, "qr": 0, "discount": 0})
     ops = extras.cash_ops_totals(sid)
     debt = q("""SELECT COALESCE(SUM(CASE WHEN operation='sale' THEN debt ELSE -debt END),0) v FROM sales WHERE shift_id=?""",
              (sid,), one=True)["v"]
@@ -732,6 +732,16 @@ def sale_create():
             return jsonify(error=f"Скидка больше {max(limit, pers):g}% — нужно подтверждение администратора",
                            need_admin=True), 403
         extras.audit("Скидка выше лимита подтверждена", f"{manual_disc:g} из {subtotal:g}", 1, con=con)
+    # ручная цена (не розница и не опт) — только с подтверждением
+    odd = [l for l in lines if not pricing.price_allowed(l["p"], l["price"])]
+    if odd and me["role"] != "admin":
+        if not extras.is_admin_pin(d.get("approve_pin")):
+            con.close()
+            return jsonify(error=f"Цена «{odd[0]['p']['name']}» изменена вручную — нужно подтверждение администратора",
+                           need_admin=True), 403
+        extras.audit("Ручная цена подтверждена", ", ".join(f"{l['p']['name']}: {l['p']['price']:g}→{l['price']:g}" for l in odd), 1, con=con)
+    # акции считаются на сервере и не входят в лимит скидки кассира
+    pricing.apply_promos(con, lines)
     bonus_used = money(d.get("bonus"))
     if bonus_used:
         if not cust:
@@ -768,7 +778,8 @@ def sale_create():
             con.close()
             return err(f"Превышен лимит долга клиента ({cust['debt_limit']:g}). Текущий долг {cust['debt']:g}")
     card = min(money(d.get("card")), round(total - debt, 2))
-    cash = round(total - card - debt, 2)
+    qr = min(money(d.get("qr")), round(total - debt - card, 2))
+    cash = round(total - card - qr - debt, 2)
     given = money(d.get("given")) if d.get("given") not in (None, "") else cash
     if given < cash - 0.001:
         con.close()
@@ -780,11 +791,11 @@ def sale_create():
     t = db.now()
     phone = (d.get("customer_phone") or (cust["phone"] if cust else "") or "").strip()
     sid = con.execute("""INSERT INTO sales(shift_id,user_id,created_at,operation,subtotal,discount,total,cash,card,
-                         given,change,customer_phone,fiscal_status,customer_id,bonus_used,bonus_earned,debt)
-                         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                         given,change,customer_phone,fiscal_status,customer_id,bonus_used,bonus_earned,debt,qr)
+                         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                       (sh["id"], session["uid"], t, "sale", subtotal, discount, total, cash, card, given, change,
                        phone, "none" if s.get("fiscal_mode") == "off" else "pending",
-                       cust["id"] if cust else None, bonus_used, bonus_earned, debt)).lastrowid
+                       cust["id"] if cust else None, bonus_used, bonus_earned, debt, qr)).lastrowid
     if cust:
         if bonus_used:
             con.execute("UPDATE customers SET bonus=bonus-? WHERE id=?", (bonus_used, cust["id"]))
@@ -801,10 +812,10 @@ def sale_create():
     for l in lines:
         p = l["p"]
         con.execute("""INSERT INTO sale_items(sale_id,product_id,name,barcode,qty,price,discount,total,vat_percent,
-                       cost_price,spic,package_code,units_code,owner_type,marking) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       cost_price,spic,package_code,units_code,owner_type,marking,promo) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (sid, p["id"], p["name"], p["barcode"], l["qty"], l["price"], l["discount"],
                      round(l["qty"] * l["price"] - l["discount"], 2), p["vat_percent"], p["cost_price"], p["spic"],
-                     p["package_code"], p["units_code"], p["owner_type"], ",".join(l["marking"]) or None))
+                     p["package_code"], p["units_code"], p["owner_type"], ",".join(l["marking"]) or None, l.get("promo")))
         con.execute("UPDATE products SET stock=stock-? WHERE id=?", (l["qty"], p["id"]))
         con.execute("INSERT INTO stock_moves(product_id,created_at,type,qty,ref_id,user_id) VALUES(?,?,?,?,?,?)",
                     (p["id"], t, "sale", -l["qty"], sid, session["uid"]))
@@ -909,8 +920,8 @@ def sale_refund(sid):
         debt_back = round(min(orig["debt"] * ratio, cust["debt"], total), 2)
     rest = round(total - debt_back, 2)
     card = min(money(d.get("card", 0)), rest)
-    if "card" not in d and orig["card"]:
-        card = min(rest, orig["card"])
+    if "card" not in d and (orig["card"] or orig.get("qr")):
+        card = min(rest, orig["card"] + (orig.get("qr") or 0))
     cash = round(rest - card, 2)
     t = db.now()
     rid = con.execute("""INSERT INTO sales(shift_id,user_id,created_at,operation,refund_of,subtotal,discount,total,cash,card,
@@ -1243,10 +1254,14 @@ def background_worker():
 
 
 import extras  # noqa: E402
+import reports2  # noqa: E402
 import network  # noqa: E402
 import grocery  # noqa: E402
 import updater  # noqa: E402
+import pricing  # noqa: E402
 extras.register(sys.modules[__name__])
+pricing.register(sys.modules[__name__])
+reports2.register(sys.modules[__name__])
 updater.register(sys.modules[__name__])
 network.register(sys.modules[__name__])
 grocery.register(sys.modules[__name__])

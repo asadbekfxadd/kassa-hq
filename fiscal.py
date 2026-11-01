@@ -69,12 +69,15 @@ def build_receipt_json(sale, items, settings, refund_of=None):
 
     debt_t = int(round(float(sale.get("debt") or 0) * 100))   # часть в насию — деньги не получены
     paid_t = max(total_net - debt_t, 0)
-    card_t = int(round(float(sale.get("card") or 0) * 100))
+    qr_t = int(round(float(sale.get("qr") or 0) * 100))
+    card_t = int(round(float(sale.get("card") or 0) * 100)) + qr_t   # QR (Payme/Click) — безналичная оплата
     if card_t > paid_t:
         card_t = paid_t
     cash_t = paid_t - card_t  # чистая наличная выручка (без сдачи)
 
-    if card_t and cash_t:
+    if qr_t and qr_t == card_t and not cash_t:
+        ptype = 3                                           # оплата по QR-коду
+    elif card_t and cash_t:
         ptype = 4
     elif card_t:
         ptype = 2
