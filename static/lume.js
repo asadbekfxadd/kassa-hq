@@ -258,51 +258,100 @@ function heatmap(heat, cnt){
 }
 
 // ---------------------------------------------------------------- «Обзор»
-let DASH_T=null;
-async function loadDash(){
-  const r=await api('/api/dash'); const t=r.today, y=r.yesterday, st=r.stock, mo=r.money;
-  const vs=(a,b)=>b?CHG(Math.round((a-b)/Math.abs(b)*1000)/10):'<span class="muted" style="font-size:12px">вчера к этому часу: 0</span>';
-  const stLbl={ok:['#dcfce7','#166534','✓ Склад в порядке'],warn:['#fef3c7','#92400e','◷ Требует внимания'],bad:['#fee2e2','#991b1b','⚠ Есть проблемы']}[st.status];
-  const payRows=[{l:'Наличные',v:r.pay.cash},{l:'Карта',v:r.pay.card},{l:'QR Click/Payme',v:r.pay.qr},{l:'Насия (в долг)',v:r.pay.debt}].filter(x=>x.v);
-  const ps=payRows.reduce((a,x)=>a+x.v,0); payRows.forEach(x=>x.sub=pct(x.v,ps)+'%');
-  const hours=[...Array(24).keys()].map(h=>({h, net:(r.hours.find(x=>x.h===h)||{}).net||0}));
+let DASH_T=null, DASH_R=null, DASH_MODE='days';
+const ico=v=>{ const x=$(`#nav button[data-v="${v}"] svg`); return x?x.outerHTML:''; };
+function dashChart(){
+  const r=DASH_R, box=$('#dChart'); if(!r||!box) return;
+  const H=Math.max(110, box.clientHeight-34);
+  $$('#dTgl button').forEach(b=>b.classList.toggle('on',b.dataset.m===DASH_MODE));
+  if(DASH_MODE==='days'){ box.innerHTML=colChart(r.week,d=>d.d+' '+d.wd+' · чеков '+d.checks,d=>d.net,{h:H,x:d=>d.wd+' '+d.d.slice(8),hi:(d,i)=>i===r.week.length-1,top:v=>v>=1e6?(v/1e6).toFixed(1)+'м':Math.round(v/1000)+'к'}); return; }
+  const hours=[...Array(24).keys()].map(h=>({h,net:(r.hours.find(x=>x.h===h)||{}).net||0}));
   const fh=hours.findIndex(x=>x.net), lh=23-[...hours].reverse().findIndex(x=>x.net);
-  const line=(ic,l,v,cls,go)=>`<div class="row" style="padding:7px 0;border-bottom:1px solid var(--line);${go?'cursor:pointer':''}" ${go?`onclick="${go}"`:''}><span style="width:22px">${ic}</span><span class="grow">${l}</span><b class="${cls}">${v}</b></div>`;
+  box.innerHTML=fh<0?'<div class="muted" style="padding:40px;text-align:center">Сегодня продаж ещё не было</div>'
+    :colChart(hours.slice(Math.min(fh,8),Math.max(lh,20)+1),d=>d.h+':00–'+(d.h+1)+':00',d=>d.net,{h:H,x:d=>d.h,top:v=>Math.round(v/1000)+'к',hi:d=>d.h===new Date().getHours()});
+}
+async function loadDash(){
+  const r=DASH_R=await api('/api/dash'); const t=r.today, y=r.yesterday, st=r.stock, mo=r.money;
+  const vs=(a,b)=>b?CHG(Math.round((a-b)/Math.abs(b)*1000)/10)+' <span class="muted" style="font-size:11px">к вчера</span>':'<span class="muted" style="font-size:11px">вчера к этому часу — 0</span>';
+  const stLbl={ok:['#dcfce7','#166534','✓ В норме'],warn:['#fef3c7','#92400e','◷ Внимание'],bad:['#fee2e2','#991b1b','⚠ Проблемы']}[st.status];
+  const payRows=[{l:'Наличные',v:r.pay.cash},{l:'Карта',v:r.pay.card},{l:'QR Click/Payme',v:r.pay.qr},{l:'Насия',v:r.pay.debt}].filter(x=>x.v);
+  const ps=payRows.reduce((a,x)=>a+x.v,0); payRows.forEach(x=>x.sub=pct(x.v,ps)+'%');
+  const line=(l,v,cls,go)=>`<div class="dl" ${go?`onclick="${go}"`:''}><span class="grow">${l}</span><b class="${cls}">${v}</b>${go?'<span class="muted">›</span>':''}</div>`;
+  const qa=(v,l,fn)=>`<button class="qa" onclick="${fn}">${ico(v)}<span>${l}</span></button>`;
   $('#dashBox').innerHTML=`
-    <div class="row wrap" style="margin-bottom:10px"><span class="grow muted">Сегодня · данные на ${r.now}, обновляются каждую минуту</span>
-      <button class="ghost" onclick="show('reports')">Все отчёты →</button></div>
-    <div class="kpis">
-      ${KPI('Выручка сегодня',fmt(t.net),'',vs(t.net,y.net)+' <span class="muted" style="font-size:12px">к вчера</span>')}
+    <div class="qabar">
+      ${qa('pos','Касса',"show('pos')")}${qa('purchase','Приход',"show('purchase')")}${qa('receive','Поступления',"show('receive')")}
+      ${qa('inventory','Ревизия',"show('inventory')")}${qa('products','Новый товар',"show('products');editProduct()")}
+      ${qa('promos','Акция',"show('promos');editPromo()")}${qa('products','Переоценка',"show('products');revalueDialog()")}
+      ${qa('shifts',r.shift?'Закрыть смену':'Открыть смену',r.shift?"show('shifts')":'openShiftDlg()')}
+      ${qa('reports','Отчёт за день',"show('reports')")}
+    </div>
+    <div class="kpis dk">
+      ${KPI('Выручка сегодня',fmt(t.net),'',vs(t.net,y.net))}
       ${KPI('Чеков',t.checks,'',vs(t.checks,y.checks))}
-      ${KPI('Средний чек',fmt(Math.round(t.avg)),'',`<span class="muted" style="font-size:12px">${t.lines_per_check} поз. в чеке</span>`)}
-      ${KPI('Валовая прибыль',fmt(t.profit),'green',`<span class="muted" style="font-size:12px">маржа ${t.margin}%</span>`)}
+      ${KPI('Средний чек',fmt(Math.round(t.avg)),'',`<span class="muted" style="font-size:11px">${t.lines_per_check} поз. в чеке</span>`)}
+      ${KPI('Валовая прибыль',fmt(t.profit),'green',`<span class="muted" style="font-size:11px">маржа ${t.margin}%</span>`)}
       ${KPI('Скидки и акции',fmt(t.discount),'amber')}
       ${KPI('Возвраты',fmt(t.refunds),t.refunds?'red':'')}
     </div>
-    <div class="grid2" style="margin-top:12px;gap:12px">
-      <div class="card"><div class="row"><b class="grow">Выручка за 14 дней</b><span class="muted" style="font-size:12px">сегодня выделено</span></div>
-        ${colChart(r.week,d=>d.d+' '+d.wd,d=>d.net,{x:d=>d.wd+' '+d.d.slice(8),hi:(d,i)=>i===r.week.length-1,top:v=>v>=1e6?(v/1e6).toFixed(1)+'м':Math.round(v/1000)+'к',ticks:14})}</div>
-      <div class="card"><b>Продажи по часам сегодня</b>${fh<0?'<div class="muted" style="padding:30px;text-align:center">Продаж ещё не было</div>':colChart(hours.slice(fh,lh+1),d=>d.h+':00',d=>d.net,{x:d=>d.h})}</div>
-      <div class="card"><b>Способы оплаты сегодня</b>${payRows.length?hBars(payRows):'<div class="muted" style="padding:20px">Нет оплат</div>'}</div>
-      <div class="card"><div class="row"><b class="grow">Состояние склада</b><span class="badge" style="background:${stLbl[0]};color:${stLbl[1]}">${stLbl[2]}</span></div>
-        ${line('🚫','Нет в наличии, но продавался за 30 дней',st.out_selling,st.out_selling?'red':'',"show('products')")}
-        ${line('⬇','Ниже минимального остатка',st.low,st.low?'amber':'',"show('products')")}
-        ${line('±','Отрицательные остатки',st.negative,st.negative?'red':'',"show('products')")}
-        ${line('⌛','Просрочено',st.expired,st.expired?'red':'',"show('expiry')")}
-        ${line('◷','Истекает срок',st.expiring,st.expiring?'amber':'',"show('expiry')")}
-        ${line('₴','Склад по себестоимости',fmt(st.value),'')}
-        <div class="muted" style="font-size:12px;margin-top:6px">${st.skus} товаров в каталоге · нажмите на строку, чтобы открыть</div></div>
-      <div class="card"><b>Деньги</b>
-        ${line('👤','Клиенты должны нам (насия)',fmt(mo.customers_debt),mo.customers_debt?'amber':'',"show('customers')")}
-        ${line('🚚','Мы должны поставщикам',fmt(mo.suppliers_debt),mo.suppliers_debt?'red':'',"show('suppliers')")}
-        ${line('🧾','Чеки не отправлены в ФМ',mo.unfiscal,mo.unfiscal?'red':'',"show('sales')")}
-        <b style="display:block;margin-top:14px">Топ товаров сегодня</b>
-        ${r.top.map((x,i)=>`<div class="row" style="font-size:13px;padding:4px 0"><span class="muted" style="width:18px">${i+1}</span><span class="grow">${esc(x.name)}</span><span class="muted">${fq(x.q)}</span><b style="width:90px;text-align:right">${fmt(x.t)}</b></div>`).join('')||'<div class="muted">Нет продаж</div>'}</div>
-      <div class="card" style="grid-column:1/-1"><b>Последние операции</b><table style="margin-top:6px"><thead><tr><th>№</th><th>Время</th><th>Кассир</th><th>Оплата</th><th class="n">Позиций</th><th class="n">Сумма</th></tr></thead><tbody>
-        ${r.recent.map(s=>`<tr style="cursor:pointer" onclick="window.open('/receipt/${s.id}','_blank')"><td>${s.id}</td><td>${s.created_at.slice(5,16)}</td><td>${esc(s.cashier||'')}</td>
-          <td>${[s.cash?'нал.':'',s.card?'карта':'',s.qr?'QR':'',s.debt?'насия':''].filter(Boolean).join(' + ')}</td><td class="n">${s.lines}</td>
-          <td class="n ${s.operation==='refund'?'red':''}"><b>${s.operation==='refund'?'−':''}${fmt(s.total)}</b></td></tr>`).join('')||'<tr><td class="muted" colspan="6">Операций нет</td></tr>'}</tbody></table></div>
+    <div class="dcards">
+      <div class="card" style="grid-column:span 2"><div class="row"><b class="grow">Выручка <span class="muted" style="font-weight:400;font-size:12px">· данные на ${r.now}, обновляются каждую минуту</span></b>
+        <div class="seg" id="dTgl"><button data-m="days">14 дней</button><button data-m="hours">Сегодня по часам</button></div></div>
+        <div class="body" id="dChart"></div></div>
+      <div class="card"><b>Оплаты сегодня</b><div class="body">${payRows.length?hBars(payRows):'<div class="muted" style="padding:10px 0">Оплат ещё не было</div>'}
+        <b style="display:block;margin-top:10px">Деньги</b>
+        ${line('Клиенты должны (насия)',fmt(mo.customers_debt),mo.customers_debt?'amber':'',"show('customers')")}
+        ${line('Мы должны поставщикам',fmt(mo.suppliers_debt),mo.suppliers_debt?'red':'',"show('suppliers')")}
+        ${line('Чеки не в ФМ',mo.unfiscal,mo.unfiscal?'red':'',"show('sales')")}</div></div>
+      <div class="card"><div class="row"><b class="grow">Склад</b><span class="badge" style="background:${stLbl[0]};color:${stLbl[1]}">${stLbl[2]}</span></div><div class="body">
+        ${line('Нет в наличии, но продаётся',st.out_selling,st.out_selling?'red':'',"show('products')")}
+        ${line('Ниже минимума',st.low,st.low?'amber':'',"show('products')")}
+        ${line('Минусовые остатки',st.negative,st.negative?'red':'',"show('products')")}
+        ${line('Просрочено',st.expired,st.expired?'red':'',"show('expiry')")}
+        ${line('Истекает срок',st.expiring,st.expiring?'amber':'',"show('expiry')")}
+        ${line('Склад по себестоимости',fmt(st.value),'')}</div></div>
+      <div class="card"><b>Топ товаров сегодня</b><div class="body">
+        ${r.top.map((x,i)=>`<div class="dl"><span class="muted" style="width:16px">${i+1}</span><span class="grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><span class="muted">${fq(x.q)}</span><b style="min-width:80px;text-align:right">${fmt(x.t)}</b></div>`).join('')||'<div class="muted">Продаж ещё не было</div>'}</div></div>
+      <div class="card"><b>Последние чеки</b><div class="body">
+        ${r.recent.map(s=>`<div class="dl" onclick="window.open('/receipt/${s.id}','_blank')"><span class="muted" style="width:40px">${s.created_at.slice(11,16)}</span>
+          <span class="grow" style="font-size:12px">№${s.id} · ${[s.cash?'нал':'',s.card?'карта':'',s.qr?'QR':'',s.debt?'насия':''].filter(Boolean).join('+')}</span>
+          <b class="${s.operation==='refund'?'red':''}">${s.operation==='refund'?'−':''}${fmt(s.total)}</b></div>`).join('')||'<div class="muted">Чеков нет</div>'}</div></div>
     </div>`;
+  $$('#dTgl button').forEach(b=>b.onclick=()=>{ DASH_MODE=b.dataset.m; dashChart(); });
+  dashChart();
+}
+window.addEventListener('resize',()=>{ if($('#v-dash').classList.contains('on')) dashChart(); });
+
+// ---------------------------------------------------------------- поиск товара из любого раздела
+(function(){
+  const right=$('header .right'); if(!right) return;
+  right.insertAdjacentHTML('beforebegin',`<div class="gsearch"><input id="gQ" placeholder="Найти товар: цена, остаток…  Ctrl+K" autocomplete="off"><div class="sugg hidden" id="gSugg"></div></div>`);
+  const q=$('#gQ'); let t=null, list=[], idx=0;
+  q.oninput=()=>{ clearTimeout(t); const v=q.value.trim(); if(v.length<2) return hideSugg('#gSugg');
+    t=setTimeout(async()=>{ try{ list=/^\d{6,}$/.test(v)?[await api('/api/products/barcode/'+encodeURIComponent(v))]:await api('/api/products?limit=12&q='+encodeURIComponent(v)); }catch(e){ list=[]; }
+      idx=0; renderSugg('#gSugg',list,idx); $('#gSugg')._pick=productCard; },160); };
+  q.onkeydown=e=>{ const vis=!$('#gSugg').classList.contains('hidden')&&list.length;
+    if(e.key==='ArrowDown'&&vis){ e.preventDefault(); idx=Math.min(idx+1,list.length-1); renderSugg('#gSugg',list,idx); $('#gSugg')._pick=productCard; }
+    else if(e.key==='ArrowUp'&&vis){ e.preventDefault(); idx=Math.max(idx-1,0); renderSugg('#gSugg',list,idx); $('#gSugg')._pick=productCard; }
+    else if(e.key==='Enter'&&vis){ e.preventDefault(); productCard(list[idx]); }
+    else if(e.key==='Escape'){ q.value=''; hideSugg('#gSugg'); q.blur(); focusScan(); } };
+  q.onblur=()=>setTimeout(()=>hideSugg('#gSugg'),150);
+  document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&(e.key==='k'||e.key==='л')&&ME){ e.preventDefault(); q.focus(); q.select(); } });
+})();
+function productCard(p){
+  if(!p) return; hideSugg('#gSugg'); $('#gQ').value='';
+  const adm=ME.role==='admin', mk=p.cost_price?Math.round((p.price/p.cost_price-1)*100):null;
+  const m=modal(`<div class="row"><h3 class="grow" style="margin:0">${esc(p.name)}</h3><span class="muted">${esc(p.category||'')}</span></div>
+    <div class="muted" style="margin-bottom:10px">${esc(p.barcode||'без штрихкода')}${p.sku?' · арт. '+esc(p.sku):''}</div>
+    <div class="kpis" style="grid-template-columns:repeat(${adm?4:2},1fr)">${KPI('Цена',fmt(p.price))}${KPI('Остаток',fq(p.stock)+' '+esc(p.unit_name||''),p.stock<=0?'red':'')}
+      ${adm?KPI('Закупка',fmt(p.cost_price),'',mk!=null?`<span class="muted" style="font-size:11px">наценка ${mk}%</span>`:''):''}${adm?KPI('Опт',p.wholesale_price?fmt(p.wholesale_price):'—'):''}</div>
+    <div class="actions" style="flex-wrap:wrap">
+      <button class="p" id="pcAdd">+ В чек</button><button id="pcLbl">🏷 Ценник</button>
+      ${adm?'<button id="pcMov">Движение</button><button id="pcEd">Изменить</button>':''}<button onclick="closeModal()">Закрыть</button></div>`);
+  m.querySelector('#pcAdd').onclick=()=>{ closeModal(m); show('pos'); addToCart(p); };
+  m.querySelector('#pcLbl').onclick=()=>{ closeModal(m); labelsDialog([p.id]); };
+  m.querySelector('#pcMov')?.addEventListener('click',()=>{ closeModal(m); productMoves(p.id); });
+  m.querySelector('#pcEd')?.addEventListener('click',()=>{ closeModal(m); if(!PRODUCTS_CACHE.some(x=>x.id===p.id)) PRODUCTS_CACHE.push(p); editProduct(p.id); });
 }
 
 // ---------------------------------------------------------------- центр отчётов
