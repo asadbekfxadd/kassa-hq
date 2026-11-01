@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Центр — сеть магазинов</title>
+<style>
+:root{--brand:#0f766e;--bg:#f3f4f6;--card:#fff;--text:#111827;--muted:#6b7280;--line:#e5e7eb;--red:#dc2626;--green:#16a34a;--amber:#d97706;--blue:#2563eb}
+*{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 "Segoe UI",system-ui,sans-serif}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:9px 14px;background:#e5e7eb;color:var(--text)}
+button.p{background:var(--brand);color:#fff} button.r{background:var(--red);color:#fff} button.ghost{background:transparent;border:1px solid var(--line)} button.b{background:var(--blue);color:#fff}
+input,select{font:inherit;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;width:100%}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+table{width:100%;border-collapse:collapse} th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:12px;color:var(--muted);background:#fafafa;position:sticky;top:0} td.n,th.n{text-align:right;white-space:nowrap}
+.hidden{display:none!important} .muted{color:var(--muted)} .red{color:var(--red)} .green{color:var(--green)} .amber{color:var(--amber)}
+.card{background:var(--card);border-radius:12px;box-shadow:0 1px 3px #0001;padding:14px}
+.row{display:flex;gap:10px;align-items:center} .wrap{flex-wrap:wrap} .grow{flex:1}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px} .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:#e5e7eb}
+.badge.ok{background:#dcfce7;color:#166534} .badge.err{background:#fee2e2;color:#991b1b} .badge.pend{background:#fef3c7;color:#92400e} .badge.blue{background:#dbeafe;color:#1e40af}
+header{display:flex;align-items:center;gap:6px;background:#0b1220;color:#fff;padding:6px 14px;height:52px;position:sticky;top:0;z-index:10}
+header .logo{font-weight:800;font-size:16px;margin-right:14px} header .logo span{color:#5eead4}
+header nav{display:flex;gap:2px;overflow-x:auto;flex:1}
+header nav button{background:transparent;color:#cbd5e1;white-space:nowrap} header nav button.on{background:#ffffff1a;color:#fff}
+main{padding:14px;max-width:1500px;margin:0 auto}
+.view{display:none} .view.on{display:block}
+h2{margin:0 0 10px;font-size:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.kpi .v{font-size:24px;font-weight:700} .kpi .l{font-size:12px;color:var(--muted)}
+.stores{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px}
+.st{position:relative} .st .nm{font-weight:700;font-size:15px} .st .big{font-size:26px;font-weight:800;margin:6px 0}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#9ca3af;margin-right:6px} .dot.on{background:#22c55e;box-shadow:0 0 0 3px #22c55e33}
+.bar{height:6px;border-radius:3px;background:#e5e7eb;overflow:hidden;margin-top:8px} .bar i{display:block;height:100%;background:var(--brand)}
+.modal{position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal .box{background:#fff;border-radius:14px;padding:18px;width:560px;max-width:100%;max-height:92vh;overflow:auto} .modal .box.wide{width:980px}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+#toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:200}
+#toast div{background:#111827;color:#fff;padding:10px 14px;border-radius:10px;max-width:420px} #toast div.err{background:var(--red)} #toast div.ok{background:var(--green)}
+.tbl{max-height:calc(100vh - 220px);overflow:auto}
+#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0b1220,#134e4a)}
+#login .box{background:#fff;border-radius:16px;padding:28px;width:340px}
+svg text{font-size:10px;fill:#6b7280}
+code{background:#f3f4f6;padding:2px 6px;border-radius:5px;font-size:12px;word-break:break-all}
+@media(max-width:800px){.grid2,.grid3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="login">
+  <div class="box">
+    <div style="font-size:22px;font-weight:800">Центр <span style="color:var(--brand)">сети</span></div>
+    <div class="muted">Кабинет владельца</div>
+    <label>Пароль</label><input type="password" id="pw" autofocus>
+    <button class="p" style="width:100%;margin-top:12px" onclick="doLogin()">Войти</button>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+<header>
+  <div class="logo">ЦЕНТР <span>сети</span></div>
+  <nav id="nav">
+    <button data-v="dash">Обзор</button><button data-v="docs">Накладные</button><button data-v="stock">Остатки</button>
+    <button data-v="catalog">Каталог</button><button data-v="sales">Продажи</button><button data-v="stores">Магазины</button>
+  </nav>
+  <button class="ghost" style="color:#fff;border-color:#334155" onclick="logout()">Выход</button>
+</header>
+<main>
+  <div id="pwWarn"></div>
+
+  <section class="view" id="v-dash">
+    <div class="row wrap"><h2 class="grow" style="margin:0">Сеть сегодня</h2><input type="date" id="dDay" style="width:160px" onchange="loadDash()"><button onclick="loadDash()">⟳</button></div>
+    <div class="kpis" id="dKpis" style="margin-top:10px"></div>
+    <div class="stores" id="dStores"></div>
+    <div class="grid2" style="margin-top:12px">
+      <div class="card"><b>Выручка за 14 дней</b><div id="dTrend" style="margin-top:8px"></div></div>
+      <div class="card"><b>Топ-10 товаров сети</b><table><tbody id="dTop"></tbody></table></div>
+    </div>
+    <div class="card" style="margin-top:12px"><b class="amber">Расхождения при приёмке (14 дней)</b><table><tbody id="dDisc"></tbody></table></div>
+  </section>
+
+  <section class="view" id="v-docs">
+    <div class="card">
+      <div class="row wrap" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Накладные: поставки и перемещения</h2>
+        <button class="p" onclick="newDoc('supply')">+ Поставка в магазин</button><button class="b" onclick="newDoc('transfer')">⇄ Перемещение</button></div>
+      <div class="tbl"><table><thead><tr><th>№</th><th>Тип</th><th>Откуда</th><th>Куда</th><th>Статус</th><th class="n">Строк</th><th class="n">Отправлено</th><th class="n">Принято</th><th class="n">Сумма</th><th>Создана</th><th></th></tr></thead><tbody id="docsBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-stock">
+    <div class="card">
+      <div class="row wrap" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Остатки по магазинам</h2>
+        <input id="sQ" placeholder="Поиск" style="width:240px"><label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="sLow" style="width:auto"> ниже минимума</label></div>
+      <div class="tbl"><table><thead id="stHead"></thead><tbody id="stBody"></tbody></table></div>
+      <p class="muted" style="margin-bottom:0">Ячейка красная — остаток ниже минимума. Подсказка: перемещайте из магазина, где товар лежит без продаж, туда, где его не хватает.</p>
+    </div>
+  </section>
+
+  <section class="view" id="v-catalog">
+    <div class="card">
+      <div class="row wrap" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Единый каталог сети</h2>
+        <input id="cQ" placeholder="Название, штрихкод" style="width:240px">
+        <button class="p" onclick="editProd()">+ Товар</button><button onclick="$('#impF').click()">Импорт Excel/CSV</button>
+        <input type="file" id="impF" class="hidden" accept=".csv,.xlsx"><a href="/api/products/export.csv"><button>Экспорт</button></a></div>
+      <p class="muted" style="margin-top:0">Цены и товары отсюда автоматически появляются во всех кассах в течение минуты.</p>
+      <div class="tbl"><table><thead><tr><th>Наименование</th><th>Штрихкод</th><th>Категория</th><th>ИКПУ</th><th class="n">Себест.</th><th class="n">Цена</th><th class="n">Остаток сети</th><th>Добавил</th><th></th></tr></thead><tbody id="catBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-sales">
+    <div class="row wrap" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Продажи</h2>
+      <select id="rSt" style="width:200px"></select><input type="date" id="rF" style="width:160px"><input type="date" id="rT" style="width:160px"><button class="p" onclick="loadSales()">Показать</button></div>
+    <div class="grid2">
+      <div class="card"><b>По магазинам</b><table><thead><tr><th>Магазин</th><th class="n">Чеков</th><th class="n">Выручка</th></tr></thead><tbody id="rStores"></tbody></table></div>
+      <div class="card"><b>Топ-50 товаров</b><div class="tbl" style="max-height:520px"><table><thead><tr><th>Товар</th><th class="n">Кол-во</th><th class="n">Сумма</th><th class="n">Прибыль</th></tr></thead><tbody id="rTop"></tbody></table></div></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-stores">
+    <div class="card">
+      <div class="row" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Магазины</h2><button class="p" onclick="editStore()">+ Магазин</button></div>
+      <table><thead><tr><th>Магазин</th><th>Адрес</th><th>Связь</th><th>Подключение кассы</th><th></th></tr></thead><tbody id="storesBody"></tbody></table>
+      <div class="card" style="margin-top:12px;background:#f0fdfa">
+        <b>Как подключить кассу магазина</b>
+        <ol style="margin:6px 0 0 18px;padding:0">
+          <li>На кассе: <b>Настройки → Сеть магазинов</b>.</li>
+          <li>Адрес Центра: <code id="hqUrl"></code></li>
+          <li>Токен магазина — кнопка «Скопировать токен» в строке нужного магазина.</li>
+          <li>«Подключить» — касса скачает каталог и начнёт отправлять продажи и остатки.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+<div id="mroot"></div><div id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const fmt=v=>(Math.round((+v||0))).toLocaleString('ru-RU');
+const fq=v=>{v=+v||0;return Number.isInteger(v)?String(v):String(Math.round(v*1000)/1000)};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=(d=0)=>{const x=new Date();x.setDate(x.getDate()-d);return x.toLocaleDateString('sv-SE')};
+let STORES=[];
+async function api(url,opt={}){
+  opt.headers=Object.assign({'Content-Type':'application/json'},opt.headers||{});
+  if(opt.body&&!(opt.body instanceof FormData)&&typeof opt.body!=='string') opt.body=JSON.stringify(opt.body);
+  if(opt.body instanceof FormData) delete opt.headers['Content-Type'];
+  const r=await fetch(url,opt); let d=null; try{d=await r.json()}catch(e){}
+  if(r.status===401&&url!=='/api/login'){ $('#login').classList.remove('hidden'); $('#app').classList.add('hidden'); throw new Error('Войдите'); }
+  if(!r.ok){ const e=new Error((d&&d.error)||'Ошибка '+r.status); e.status=r.status; throw e; } return d;
+}
+function toast(m,t=''){ const d=document.createElement('div'); d.className=t; d.textContent=m; $('#toast').appendChild(d); setTimeout(()=>d.remove(),t==='err'?6000:3000); }
+function modal(html,cls=''){ const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="box ${cls}">${html}</div>`; $('#mroot').appendChild(m);
+  m.addEventListener('mousedown',e=>{ if(e.target===m) m.remove(); }); setTimeout(()=>{ const f=m.querySelector('[autofocus]')||m.querySelector('input'); f&&f.focus(); },30); return m; }
+const closeM=()=>$('#mroot .modal:last-child')?.remove();
+
+async function doLogin(){ try{ const r=await api('/api/login',{method:'POST',body:{password:$('#pw').value}}); boot(); }catch(e){ toast(e.message,'err'); } }
+$('#pw').onkeydown=e=>{ if(e.key==='Enter') doLogin(); };
+async function logout(){ await api('/api/logout',{method:'POST'}); location.reload(); }
+async function boot(){
+  let me; try{ me=await api('/api/me'); }catch(e){ return; }
+  $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+  $('#pwWarn').innerHTML=me.default_password?'<div class="card" style="background:#fee2e2;margin-bottom:12px">⚠️ Используется пароль по умолчанию <b>admin</b>. Задайте переменную окружения <code>HQ_PASSWORD</code> на сервере.</div>':'';
+  STORES=await api('/api/stores'); show('dash');
+}
+$$('#nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+function show(v){ $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v)); $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  ({dash:loadDash,docs:loadDocs,stock:loadStock,catalog:loadCat,sales:initSales,stores:loadStores})[v](); }
+
+// ---------------- dashboard
+async function loadDash(){
+  if(!$('#dDay').value) $('#dDay').value=today();
+  const r=await api('/api/dashboard?day='+$('#dDay').value);
+  const S=r.stores, tot=k=>S.reduce((a,s)=>a+(s[k]||0),0); const net=tot('net'), ch=tot('checks');
+  const K=(l,v,c='')=>`<div class="card kpi"><div class="l">${l}</div><div class="v ${c}">${v}</div></div>`;
+  $('#dKpis').innerHTML=K('Выручка сети',fmt(net))+K('Чеков',ch)+K('Средний чек',fmt(ch?net/ch:0))+K('Прибыль',fmt(tot('profit')),'green')+K('Наличные',fmt(tot('cash')))+K('Карта',fmt(tot('card')))+K('В насию',fmt(tot('debt')),'red')+K('Магазинов онлайн',S.filter(s=>s.online).length+' из '+S.length)+K('Накладных в пути',r.pending_docs,'amber');
+  const mx=Math.max(...S.map(s=>s.net),1);
+  $('#dStores').innerHTML=S.map(s=>`<div class="card st"><div class="row"><span class="dot ${s.online?'on':''}" title="${s.online?'на связи':'нет связи, последняя: '+(s.last_seen||'никогда')}"></span><span class="nm grow">${esc(s.name)}</span><span class="muted" style="font-size:12px">${s.last_seen?s.last_seen.slice(11,16):'—'}</span></div>
+    <div class="big">${fmt(s.net)}</div><div class="muted">${s.checks} чек. · ср. ${fmt(s.avg)} · прибыль <span class="green">${fmt(s.profit)}</span></div>
+    <div class="bar"><i style="width:${Math.max(2,s.net/mx*100)}%"></i></div></div>`).join('')||'<div class="card muted">Добавьте магазины во вкладке «Магазины»</div>';
+  // trend: stacked by day
+  const days=[...Array(14).keys()].map(i=>{ const d=new Date($('#dDay').value); d.setDate(d.getDate()-13+i); return d.toLocaleDateString('sv-SE'); });
+  const byDay=days.map(d=>r.trend.filter(x=>x.d===d).reduce((a,x)=>a+x.net,0)); const m2=Math.max(...byDay,1);
+  const W=560,H=150,bw=W/14;
+  $('#dTrend').innerHTML=`<svg viewBox="0 0 ${W} ${H+18}" width="100%">${byDay.map((v,i)=>`<rect x="${i*bw+4}" y="${H-v/m2*H}" width="${bw-8}" height="${v/m2*H}" rx="3" fill="${i===13?'#0f766e':'#99d5cf'}"><title>${days[i]}: ${fmt(v)}</title></rect><text x="${i*bw+bw/2}" y="${H+13}" text-anchor="middle">${days[i].slice(8)}</text>`).join('')}</svg>`;
+  $('#dTop').innerHTML=r.top.map((t,i)=>`<tr><td class="muted">${i+1}</td><td>${esc(t.name)}</td><td class="n">${fq(t.q)}</td><td class="n"><b>${fmt(t.t)}</b></td></tr>`).join('')||'<tr><td class="muted">Нет продаж</td></tr>';
+  $('#dDisc').innerHTML=r.discrepancies.map(d=>`<tr><td>${esc(d.number)}</td><td>${esc(d.to_name)}</td><td>${d.received_at}</td><td class="n">${d.short?`<span class="red">недостача ${fq(d.short)}</span>`:''} ${d.extra?`<span class="amber">излишек ${fq(d.extra)}</span>`:''}</td><td class="muted">${esc(d.note||'')}</td></tr>`).join('')||'<tr><td class="muted">Расхождений нет ✓</td></tr>';
+}
+
+// ---------------- stores
+async function loadStores(){
+  STORES=await api('/api/stores'); $('#hqUrl').textContent=location.origin;
+  $('#storesBody').innerHTML=STORES.map(s=>`<tr><td><b>${esc(s.name)}</b>${s.active?'':' <span class="badge">отключён</span>'}</td><td>${esc(s.address||'')}</td>
+    <td><span class="dot ${s.online?'on':''}"></span>${s.last_seen||'не подключался'}${s.info&&s.info.version?`<div class="muted" style="font-size:11px">${esc(s.info.cashier||'')} · смена ${s.info.shift?'открыта':'закрыта'}</div>`:''}</td>
+    <td><button class="ghost" onclick="copyTok('${s.token}')">Скопировать токен</button></td>
+    <td style="white-space:nowrap"><button class="ghost" onclick='editStore(${JSON.stringify(s)})'>Изм.</button> <button class="ghost" onclick="newTok(${s.id})" title="Если токен утёк">Новый токен</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted">Магазинов нет</td></tr>';
+}
+function copyTok(t){ navigator.clipboard.writeText(t).then(()=>toast('Токен скопирован — вставьте его в кассе','ok'),()=>prompt('Токен магазина:',t)); }
+async function newTok(id){ if(!confirm('Выпустить новый токен? Касса с текущим токеном отключится до ввода нового.')) return; await api(`/api/stores/${id}/token`,{method:'POST'}); loadStores(); }
+function editStore(s){ s=s||{active:1};
+  const m=modal(`<h3>${s.id?'Магазин':'Новый магазин'}</h3><label>Название</label><input id="esN" value="${esc(s.name||'')}" autofocus><label>Адрес</label><input id="esA" value="${esc(s.address||'')}">
+    ${s.id?`<label>Статус</label><select id="esS"><option value="1" ${s.active?'selected':''}>Работает</option><option value="0" ${!s.active?'selected':''}>Отключён</option></select>`:''}
+    <div class="actions"><button onclick="closeM()">Отмена</button><button class="p" id="esOk">Сохранить</button></div>`);
+  m.querySelector('#esOk').onclick=async()=>{ try{ await api('/api/stores',{method:'POST',body:{id:s.id,name:m.querySelector('#esN').value,address:m.querySelector('#esA').value,active:m.querySelector('#esS')?.value??1}}); m.remove(); loadStores(); toast('Сохранено','ok'); }catch(e){ toast(e.message,'err'); } };
+}
+
+// ---------------- catalog
+let CAT=[], ct=null;
+$('#cQ').oninput=()=>{ clearTimeout(ct); ct=setTimeout(loadCat,200); };
+async function loadCat(){
+  CAT=await api('/api/products?q='+encodeURIComponent($('#cQ').value.trim()));
+  $('#catBody').innerHTML=CAT.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.barcode||'')}</td><td>${esc(p.category||'')}</td><td>${p.spic?esc(p.spic):'<span class="red">нет</span>'}</td>
+    <td class="n">${fmt(p.cost_price)}</td><td class="n"><b>${fmt(p.price)}</b></td><td class="n">${fq(p.total_stock)}</td><td class="muted">${esc(p.created_by||'')}</td>
+    <td><button class="ghost" onclick="editProd('${p.uid}')">Изм.</button></td></tr>`).join('')||'<tr><td colspan="9" class="muted">Каталог пуст — импортируйте из Excel</td></tr>';
+}
+function editProd(uid){
+  const p=CAT.find(x=>x.uid===uid)||{vat_percent:12,unit_name:'шт'};
+  const f=(id,l,v,t='text')=>`<div><label>${l}</label><input id="${id}" type="${t}" value="${esc(v??'')}" step="any"></div>`;
+  const m=modal(`<h3>${p.uid?'Товар':'Новый товар'}</h3>${f('pN','Наименование',p.name)}
+    <div class="grid3">${f('pB','Штрихкод',p.barcode)}${f('pS','Артикул',p.sku)}${f('pC','Категория',p.category)}</div>
+    <div class="grid3">${f('pCo','Себестоимость',p.cost_price,'number')}${f('pP','Цена продажи',p.price,'number')}${f('pM','Мин. остаток',p.min_stock,'number')}</div>
+    <div class="grid3">${f('pI','ИКПУ',p.spic)}${f('pPk','Код упаковки',p.package_code)}${f('pU','Код ед.',p.units_code,'number')}</div>
+    <div class="grid3">${f('pUn','Ед. изм.',p.unit_name)}${f('pV','НДС %',p.vat_percent,'number')}<div></div></div>
+    <div class="actions">${p.uid?'<button class="r" id="pDel" style="margin-right:auto">Удалить</button>':''}<button onclick="closeM()">Отмена</button><button class="p" id="pOk">Сохранить</button></div>`,'wide');
+  const g=id=>m.querySelector(id).value;
+  m.querySelector('#pOk').onclick=async()=>{ try{ await api('/api/products',{method:'POST',body:{uid:p.uid,name:g('#pN'),barcode:g('#pB'),sku:g('#pS'),category:g('#pC'),cost_price:g('#pCo'),price:g('#pP'),min_stock:g('#pM'),spic:g('#pI'),package_code:g('#pPk'),units_code:g('#pU'),unit_name:g('#pUn'),vat_percent:g('#pV')}});
+    m.remove(); loadCat(); toast('Сохранено — кассы получат изменения в течение минуты','ok'); }catch(e){ toast(e.message,'err'); } };
+  m.querySelector('#pDel')?.addEventListener('click',async()=>{ if(!confirm('Удалить из каталога всех магазинов?')) return; await api('/api/products/'+p.uid,{method:'DELETE'}); m.remove(); loadCat(); });
+}
+$('#impF').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const fd=new FormData(); fd.append('file',f);
+  try{ const r=await api('/api/products/import',{method:'POST',body:fd}); toast(`Создано ${r.created}, обновлено ${r.updated}`,'ok'); loadCat(); }catch(er){ toast(er.message,'err'); } e.target.value=''; };
+
+// ---------------- stock matrix
+let stt=null; $('#sQ').oninput=()=>{ clearTimeout(stt); stt=setTimeout(loadStock,200); }; $('#sLow').onchange=loadStock;
+async function loadStock(){
+  const r=await api(`/api/stock?q=${encodeURIComponent($('#sQ').value.trim())}${$('#sLow').checked?'&low=1':''}`);
+  $('#stHead').innerHTML=`<tr><th>Товар</th><th>Штрихкод</th>${r.stores.map(s=>`<th class="n">${esc(s.name)}</th>`).join('')}<th class="n">Всего</th><th class="n">На сумму</th></tr>`;
+  $('#stBody').innerHTML=r.items.map(p=>`<tr><td>${esc(p.name)}</td><td class="muted">${esc(p.barcode||'')}</td>${r.stores.map(s=>{ const v=p.by_store[String(s.id)]; const low=p.min_stock&&(v||0)<=p.min_stock;
+      return `<td class="n" style="${low?'background:#fef2f2;color:#dc2626;font-weight:600':''}">${v===undefined?'<span class="muted">—</span>':fq(v)}</td>`; }).join('')}
+    <td class="n"><b>${fq(p.total)}</b></td><td class="n">${fmt(p.total*(p.cost_price||0))}</td></tr>`).join('')||`<tr><td class="muted" colspan="${r.stores.length+4}">Нет данных — подключите кассы</td></tr>`;
+}
+
+// ---------------- sales
+function initSales(){ if(!$('#rF').value){ $('#rF').value=today(6); $('#rT').value=today(); }
+  $('#rSt').innerHTML='<option value="">Все магазины</option>'+STORES.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join(''); loadSales(); }
+async function loadSales(){
+  const r=await api(`/api/sales_report?from=${$('#rF').value}&to=${$('#rT').value}&store=${$('#rSt').value}`);
+  $('#rStores').innerHTML=r.by_store.map(s=>`<tr><td>${esc(s.name)}</td><td class="n">${s.checks}</td><td class="n"><b>${fmt(s.net)}</b></td></tr>`).join('')||'<tr><td class="muted">Нет продаж</td></tr>';
+  $('#rTop').innerHTML=r.top.map(t=>`<tr><td>${esc(t.name)}</td><td class="n">${fq(t.qty)}</td><td class="n">${fmt(t.total)}</td><td class="n green">${fmt(t.profit)}</td></tr>`).join('');
+}
+
+// ---------------- docs
+const ST={to_ship:['Ждёт отгрузки','pend'],sent:['В пути','blue'],received:['Принята','ok'],cancelled:['Отменена','']};
+async function loadDocs(){
+  STORES=await api('/api/stores'); const rows=await api('/api/docs');
+  $('#docsBody').innerHTML=rows.map(d=>{ const diff=d.status==='received'?d.qty_fact-d.qty:0; const s=ST[d.status]||[d.status,''];
+    return `<tr><td><b>${esc(d.number)}</b></td><td>${d.type==='supply'?'Поставка':'Перемещение'}</td><td>${esc(d.type==='supply'?(d.supplier||'Поставщик'):d.from_name)}</td><td>${esc(d.to_name)}</td>
+    <td><span class="badge ${s[1]}">${s[0]}</span>${diff?` <span class="${diff<0?'red':'amber'}" title="Расхождение">${diff>0?'+':''}${fq(diff)}</span>`:''}</td>
+    <td class="n">${d.lines}</td><td class="n">${fq(d.qty)}</td><td class="n">${d.status==='received'?fq(d.qty_fact):'—'}</td><td class="n">${fmt(d.sum)}</td><td class="muted">${d.created_at.slice(0,16)}<div style="font-size:11px">${esc(d.created_by||'')}</div></td>
+    <td><button class="ghost" onclick="showDoc('${d.uid}')">Открыть</button></td></tr>`; }).join('')||'<tr><td colspan="11" class="muted">Накладных нет</td></tr>';
+}
+async function showDoc(uid){
+  const d=await api('/api/docs/'+uid); const s=ST[d.status]||[d.status,''];
+  const m=modal(`<h3>${d.type==='supply'?'Поставка':'Перемещение'} ${esc(d.number)} <span class="badge ${s[1]}">${s[0]}</span></h3>
+    <div class="muted">${esc(d.type==='supply'?(d.supplier||'Поставщик'):d.from_name)} → <b>${esc(d.to_name)}</b> · создана ${d.created_at} ${d.received_at?'· принята '+d.received_at:''} ${d.note?'· '+esc(d.note):''}</div>
+    <div style="max-height:60vh;overflow:auto;margin-top:10px"><table><thead><tr><th>Товар</th><th>Штрихкод</th><th class="n">Отправлено</th><th class="n">Принято</th><th class="n">Разница</th><th class="n">Себест.</th></tr></thead><tbody>
+    ${d.lines.map(l=>{ const df=l.qty_fact==null?null:l.qty_fact-l.qty; return `<tr style="${df?'background:'+(df<0?'#fef2f2':'#fffbeb'):''}"><td>${esc(l.name||l.product_uid)}</td><td class="muted">${esc(l.barcode||'')}</td><td class="n">${fq(l.qty)}</td><td class="n">${l.qty_fact==null?'—':fq(l.qty_fact)}</td><td class="n ${df<0?'red':df>0?'amber':''}">${df?(df>0?'+':'')+fq(df):''}</td><td class="n">${fmt(l.cost)}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    <div class="actions">${['sent','to_ship'].includes(d.status)?'<button class="r" id="dCan" style="margin-right:auto">Отменить</button>':''}<button class="p" onclick="closeM()">Закрыть</button></div>`,'wide');
+  m.querySelector('#dCan')?.addEventListener('click',async()=>{ if(!confirm('Отменить накладную?')) return; await api('/api/docs/'+uid,{method:'DELETE'}); m.remove(); loadDocs(); });
+}
+function newDoc(type){
+  if(!STORES.length) return toast('Сначала добавьте магазины','err');
+  let lines=[];
+  const opts=STORES.filter(s=>s.active).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  const m=modal(`<h3>${type==='supply'?'Поставка от поставщика в магазин':'Перемещение между магазинами'}</h3>
+    <div class="grid3">${type==='supply'?`<div><label>Поставщик</label><input id="ndSup"></div>`:`<div><label>Откуда</label><select id="ndFrom">${opts}</select></div>`}
+      <div><label>Куда</label><select id="ndTo">${opts}</select></div><div><label>Комментарий</label><input id="ndNote"></div></div>
+    <div class="row" style="margin-top:10px"><input id="ndScan" class="grow" placeholder="Сканируйте штрихкод или введите название и Enter" autofocus>
+      ${type==='supply'?'<button id="ndImp">Из Excel поставщика</button><input type="file" id="ndF" class="hidden" accept=".csv,.xlsx">':''}</div>
+    <div id="ndSugg"></div>
+    <div style="max-height:45vh;overflow:auto;margin-top:8px"><table><thead><tr><th>Товар</th><th class="n">Кол-во</th><th class="n">Себест.</th><th class="n">Сумма</th><th></th></tr></thead><tbody id="ndBody"></tbody></table></div>
+    <div class="row" style="margin-top:8px"><b class="grow" id="ndTot"></b></div>
+    <p class="muted" style="margin:6px 0 0">${type==='supply'?'Магазин увидит накладную в кассе («Поступления») и примет её сканером.':'Магазин-отправитель отсканирует товар при отгрузке, получатель — при приёмке. Расхождения видны здесь.'}</p>
+    <div class="actions"><button onclick="closeM()">Отмена</button><button class="p" id="ndOk">Отправить в магазин</button></div>`,'wide');
+  if(type==='transfer' && STORES.length>1) m.querySelector('#ndTo').selectedIndex=1;
+  const draw=()=>{ m.querySelector('#ndBody').innerHTML=lines.map((l,i)=>`<tr><td>${esc(l.name)} <span class="muted">${esc(l.barcode||'')}</span></td>
+      <td class="n"><input type="number" step="any" value="${l.qty}" style="width:80px" data-q="${i}"></td><td class="n"><input type="number" step="any" value="${l.cost}" style="width:110px" data-c="${i}"></td>
+      <td class="n">${fmt(l.qty*l.cost)}</td><td><button class="ghost" data-x="${i}">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted">Добавьте товары</td></tr>';
+    m.querySelector('#ndTot').textContent=lines.length?`${lines.length} поз. · ${fq(lines.reduce((a,l)=>a+ +l.qty,0))} шт · ${fmt(lines.reduce((a,l)=>a+l.qty*l.cost,0))}`:'';
+    m.querySelectorAll('[data-q]').forEach(i=>i.onchange=()=>{ lines[+i.dataset.q].qty=+i.value; draw(); });
+    m.querySelectorAll('[data-c]').forEach(i=>i.onchange=()=>{ lines[+i.dataset.c].cost=+i.value; draw(); });
+    m.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{ lines.splice(+b.dataset.x,1); draw(); }); };
+  const add=p=>{ const ex=lines.find(l=>l.product_uid===p.uid); if(ex) ex.qty+=1; else lines.unshift({product_uid:p.uid,name:p.name,barcode:p.barcode,qty:1,cost:p.cost_price||0}); draw(); };
+  const sc=m.querySelector('#ndScan');
+  sc.onkeydown=async e=>{ if(e.key!=='Enter') return; const v=sc.value.trim(); if(!v) return; sc.value='';
+    try{ add(await api('/api/products/barcode/'+encodeURIComponent(v))); m.querySelector('#ndSugg').innerHTML=''; }
+    catch(er){ const l=await api('/api/products?q='+encodeURIComponent(v)); if(!l.length) return toast('Не найдено: '+v,'err');
+      if(l.length===1) return add(l[0]);
+      m.querySelector('#ndSugg').innerHTML='<div class="card" style="margin-top:6px;max-height:200px;overflow:auto">'+l.slice(0,15).map((p,i)=>`<div style="padding:6px;cursor:pointer" data-i="${i}">${esc(p.name)} <span class="muted">${esc(p.barcode||'')}</span></div>`).join('')+'</div>';
+      m.querySelectorAll('#ndSugg [data-i]').forEach(x=>x.onclick=()=>{ add(l[+x.dataset.i]); m.querySelector('#ndSugg').innerHTML=''; sc.focus(); }); } };
+  m.querySelector('#ndImp')?.addEventListener('click',()=>m.querySelector('#ndF').click());
+  m.querySelector('#ndF')?.addEventListener('change',async e=>{ const fd=new FormData(); fd.append('file',e.target.files[0]);
+    try{ const r=await api('/api/docs/parse',{method:'POST',body:fd}); r.lines.forEach(l=>{ const ex=lines.find(x=>x.product_uid===l.product_uid); if(ex) ex.qty+=l.qty; else lines.push(l); }); draw();
+      toast(`Загружено ${r.lines.length} строк`+(r.missing.length?`, не найдено в каталоге: ${r.missing.length}`:''), r.missing.length?'err':'ok'); }catch(er){ toast(er.message,'err'); } });
+  m.querySelector('#ndOk').onclick=async()=>{ try{
+    await api('/api/docs',{method:'POST',body:{type,supplier:m.querySelector('#ndSup')?.value,from_store_id:m.querySelector('#ndFrom')?.value,to_store_id:m.querySelector('#ndTo').value,note:m.querySelector('#ndNote').value,lines}});
+    m.remove(); toast('Накладная отправлена в магазин','ok'); loadDocs(); }catch(e){ toast(e.message,'err'); } };
+  draw();
+}
+setInterval(()=>{ if($('#v-dash').classList.contains('on')&&!$('#mroot .modal')) loadDash(); },60000);
+boot();
+</script>
+</body>
+</html>
