@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Экран покупателя</title>
+<style>
+  :root{--brand:#0f766e}
+  *{box-sizing:border-box} html,body{margin:0;height:100%;font-family:"Segoe UI",system-ui,sans-serif;background:#0b1220;color:#fff;overflow:hidden}
+  .wrap{display:grid;grid-template-columns:1.4fr 1fr;height:100%}
+  .left{padding:28px 32px;display:flex;flex-direction:column;min-height:0}
+  .store{font-size:28px;font-weight:700;color:var(--brand);filter:brightness(1.6)}
+  .list{flex:1;overflow:hidden;margin-top:18px;display:flex;flex-direction:column;gap:8px}
+  .it{display:flex;justify-content:space-between;gap:14px;font-size:24px;padding:12px 16px;background:#ffffff0d;border-radius:12px;animation:in .35s ease}
+  .it.last{background:#ffffff1f;outline:2px solid var(--brand)}
+  .it .q{opacity:.7;font-size:19px}
+  .right{background:var(--brand);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:32px;text-align:center}
+  .lbl{font-size:26px;opacity:.85}
+  .total{font-size:96px;font-weight:800;line-height:1.05;margin:8px 0;font-variant-numeric:tabular-nums}
+  .sub{font-size:24px;opacity:.9;margin-top:6px}
+  .thanks{font-size:52px;font-weight:700}
+  .idle{font-size:44px;font-weight:700}
+  .clock{position:fixed;right:24px;bottom:16px;font-size:20px;opacity:.6}
+  @keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="left"><div class="store" id="store"></div><div class="list" id="list"></div></div>
+  <div class="right" id="right"></div>
+</div>
+<div class="clock" id="clock"></div>
+<script>
+const fmt=v=>(Math.round((+v||0)*100)/100).toLocaleString('ru-RU');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let V=-1, CUR='';
+async function tick(){
+  try{
+    const r=await (await fetch('/api/display')).json();
+    document.documentElement.style.setProperty('--brand', r.color||'#0f766e');
+    document.getElementById('store').textContent=r.store||'';
+    if(r.v===V) return; V=r.v; const s=r.state||{}; CUR=r.currency||'';
+    const items=s.items||[];
+    document.getElementById('list').innerHTML=items.slice(-9).map((x,i,a)=>`<div class="it ${i===a.length-1&&s.status!=='done'?'last':''}"><span>${esc(x.name)}<div class="q">${x.qty} × ${fmt(x.price)}${x.discount?` · скидка ${fmt(x.discount)}`:''}</div></span><b>${fmt(x.sum)}</b></div>`).join('');
+    const R=document.getElementById('right');
+    if(s.status==='done'){
+      R.innerHTML=`<div class="thanks">Спасибо за покупку!</div>${s.change?`<div class="lbl" style="margin-top:24px">Ваша сдача</div><div class="total">${fmt(s.change)}</div>`:''}${s.bonus_earned?`<div class="sub">+${fmt(s.bonus_earned)} бонусов начислено</div>`:''}${r.footer?`<div class="sub" style="margin-top:22px">${esc(r.footer)}</div>`:''}`;
+    } else if(items.length){
+      R.innerHTML=`<div class="lbl">К оплате</div><div class="total">${fmt(s.total)}</div><div class="sub">${esc(CUR)}</div>
+        ${s.discount?`<div class="sub">Ваша скидка: ${fmt(s.discount)}</div>`:''}
+        ${s.customer?`<div class="sub" style="margin-top:18px">👤 ${esc(s.customer)}${s.bonus!=null?` · бонусы: ${fmt(s.bonus)}`:''}</div>`:''}`;
+    } else {
+      R.innerHTML=`<div class="idle">Добро пожаловать!</div>${r.footer?`<div class="sub" style="margin-top:14px">${esc(r.footer)}</div>`:''}`;
+    }
+  }catch(e){}
+}
+setInterval(tick,500); tick();
+setInterval(()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}),1000);
+</script>
+</body>
+</html>

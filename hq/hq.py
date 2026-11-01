@@ -743,6 +743,72 @@ def sync():
                    store={"uid": st["uid"], "name": st["name"]})
 
 
+# ================================================================ обновления касс
+REPO_ROOT = os.path.dirname(BASE)          # касса лежит в корне репозитория, Центр — в hq/
+_UPD = {"version": None, "zip": None, "sha256": None}
+UPD_SKIP_DIRS = {"hq", ".git", ".github", "data", "__pycache__", "node_modules"}
+UPD_SKIP_FILES = {"VERSION", "railway.json", "Procfile", ".gitignore"}
+
+
+def build_update():
+    """Собирает zip кассы из файлов репозитория (один раз на запуск Центра)."""
+    if _UPD["zip"] is not None:
+        return _UPD
+    import hashlib
+    import zipfile
+    files = []
+    if os.path.exists(os.path.join(REPO_ROOT, "app.py")):
+        for root, dirs, fns in os.walk(REPO_ROOT):
+            dirs[:] = sorted(d for d in dirs if d not in UPD_SKIP_DIRS and not d.startswith("."))
+            for fn in sorted(fns):
+                if fn in UPD_SKIP_FILES or fn.endswith((".pyc", ".db", ".log")):
+                    continue
+                full = os.path.join(root, fn)
+                files.append((os.path.relpath(full, REPO_ROOT).replace(os.sep, "/"), full))
+    h = hashlib.sha1()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for rel, full in files:
+            data = open(full, "rb").read()
+            h.update(rel.encode() + b"\0" + data)
+            zf.writestr(rel, data)
+    raw = buf.getvalue()
+    _UPD.update(version=(h.hexdigest()[:10] if files else None), zip=raw, sha256=hashlib.sha256(raw).hexdigest(),
+                files=len(files))
+    return _UPD
+
+
+@app.get("/update/version")
+def update_version():
+    if not store_auth():
+        return err("Неверный токен магазина", 401)
+    u = build_update()
+    return jsonify(version=u["version"], sha256=u["sha256"], files=u.get("files", 0),
+                   notes=(os.environ.get("RAILWAY_GIT_COMMIT_MESSAGE") or "").split("\n")[0][:200])
+
+
+@app.get("/update/kassa.zip")
+def update_zip():
+    if not store_auth():
+        return err("Неверный токен магазина", 401)
+    u = build_update()
+    if not u["version"]:
+        return err("Сборка кассы не найдена на сервере", 404)
+    return Response(u["zip"], mimetype="application/zip",
+                    headers={"Content-Disposition": f"attachment; filename=kassa-{u['version']}.zip"})
+
+
+@app.get("/api/update/info")
+@owner
+def update_info():
+    u = build_update()
+    stores = q("SELECT name, info FROM stores WHERE active=1")
+    for st in stores:
+        st["version"] = json.loads(st["info"] or "{}").get("app_version")
+        del st["info"]
+    return jsonify(version=u["version"], files=u.get("files", 0), stores=stores)
+
+
 @app.get("/health")
 def health():
     return jsonify(ok=True, time=now())

@@ -1,1 +1,1 @@
-web: python hq.py
+web: python hq/hq.py

@@ -201,10 +201,12 @@ async function loadDash(){
 }
 
 // ---------------- stores
+let UPDV=null;
 async function loadStores(){
   STORES=await api('/api/stores'); $('#hqUrl').textContent=location.origin;
+  try{ UPDV=(await api('/api/update/info')).version; }catch(e){}
   $('#storesBody').innerHTML=STORES.map(s=>`<tr><td><b>${esc(s.name)}</b>${s.active?'':' <span class="badge">отключён</span>'}</td><td>${esc(s.address||'')}</td>
-    <td><span class="dot ${s.online?'on':''}"></span>${s.last_seen||'не подключался'}${s.info&&s.info.version?`<div class="muted" style="font-size:11px">${esc(s.info.cashier||'')} · смена ${s.info.shift?'открыта':'закрыта'}</div>`:''}</td>
+    <td><span class="dot ${s.online?'on':''}"></span>${s.last_seen||'не подключался'}${s.info&&s.info.version?`<div class="muted" style="font-size:11px">${esc(s.info.cashier||'')} · смена ${s.info.shift?'открыта':'закрыта'}${s.info.app_version?` · версия ${esc(s.info.app_version)}${UPDV&&s.info.app_version!==UPDV?' <span class="amber">(обновится)</span>':' ✓'}`:''}</div>`:''}</td>
     <td><button class="ghost" onclick="copyTok('${s.token}')">Скопировать токен</button></td>
     <td style="white-space:nowrap"><button class="ghost" onclick='editStore(${JSON.stringify(s)})'>Изм.</button> <button class="ghost" onclick="newTok(${s.id})" title="Если токен утёк">Новый токен</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted">Магазинов нет</td></tr>';
 }

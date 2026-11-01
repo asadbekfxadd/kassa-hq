@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Отчёт по смене №{{ r.shift.id }}</title>
+<style>
+  @page { size: {{ s.receipt_width or 80 }}mm auto; margin: 0; }
+  body { margin: 0; font-family: "Consolas", "Courier New", monospace; color: #000; background: #fff; }
+  .r { width: {{ (s.receipt_width|int) - 8 if s.receipt_width else 72 }}mm; margin: 0 auto; padding: 3mm 0 6mm; font-size: 11px; line-height: 1.35; }
+  .c { text-align: center; } .b { font-weight: bold; } .big { font-size: 1.3em; }
+  .row { display: flex; justify-content: space-between; gap: 6px; }
+  hr { border: 0; border-top: 1px dashed #000; margin: 5px 0; }
+  @media screen { body { background: #e5e7eb; } .r { background: #fff; margin: 12px auto; padding: 4mm; } }
+</style>
+</head>
+<body>
+{% macro m(v) %}{{ "{:,.0f}".format(v or 0).replace(',', ' ') }}{% endmacro %}
+<div class="r">
+  <div class="c b big">{{ s.store_name }}</div>
+  <div class="c b">{{ 'Z-ОТЧЁТ (смена закрыта)' if r.shift.status == 'closed' else 'X-ОТЧЁТ (промежуточный)' }}</div>
+  <hr>
+  <div class="row"><span>Смена №</span><span>{{ r.shift.id }}</span></div>
+  <div class="row"><span>Кассир</span><span>{{ r.shift.user }}</span></div>
+  <div class="row"><span>Открыта</span><span>{{ r.shift.opened_at }}</span></div>
+  {% if r.shift.closed_at %}<div class="row"><span>Закрыта</span><span>{{ r.shift.closed_at }}</span></div>{% endif %}
+  <hr>
+  <div class="b">ПРОДАЖИ</div>
+  <div class="row"><span>Чеков</span><span>{{ r.sales.n }}</span></div>
+  <div class="row"><span>Сумма</span><span>{{ m(r.sales.total) }}</span></div>
+  <div class="row"><span>  наличные</span><span>{{ m(r.sales.cash) }}</span></div>
+  <div class="row"><span>  карта</span><span>{{ m(r.sales.card) }}</span></div>
+  <div class="row"><span>  скидки</span><span>{{ m(r.sales.discount) }}</span></div>
+  <hr>
+  <div class="b">ВОЗВРАТЫ</div>
+  <div class="row"><span>Чеков</span><span>{{ r.refunds.n }}</span></div>
+  <div class="row"><span>Сумма</span><span>{{ m(r.refunds.total) }}</span></div>
+  <div class="row"><span>  наличные</span><span>{{ m(r.refunds.cash) }}</span></div>
+  <div class="row"><span>  карта</span><span>{{ m(r.refunds.card) }}</span></div>
+  <hr>
+  {% if r.ops %}
+  <div class="b">ДВИЖЕНИЕ НАЛИЧНЫХ</div>
+  <div class="row"><span>Внесение</span><span>{{ m(r.ops.cin) }}</span></div>
+  <div class="row"><span>Изъятие</span><span>{{ m(r.ops.cout) }}</span></div>
+  <div class="row"><span>Расходы</span><span>{{ m(r.ops.expense) }}</span></div>
+  <div class="row"><span>Погашение долгов нал</span><span>{{ m(r.ops.debt_cash) }}</span></div>
+  <div class="row"><span>Погашение долгов карта</span><span>{{ m(r.ops.debt_card) }}</span></div>
+  <div class="row"><span>Продано в насию</span><span>{{ m(r.debt) }}</span></div>
+  <hr>
+  {% endif %}
+  <div class="row b big"><span>ВЫРУЧКА</span><span>{{ m(r.net) }}</span></div>
+  <div class="row"><span>Размен на начало</span><span>{{ m(r.shift.opening_cash) }}</span></div>
+  <div class="row b"><span>Наличных должно быть</span><span>{{ m(r.expected_cash) }}</span></div>
+  {% if r.shift.closing_cash is not none %}
+  <div class="row"><span>Сдано фактически</span><span>{{ m(r.shift.closing_cash) }}</span></div>
+  <div class="row b"><span>Расхождение</span><span>{{ m(r.shift.closing_cash - r.expected_cash) }}</span></div>
+  {% endif %}
+  <hr>
+  <div class="row"><span>Z-отчёт ФМ</span><span>{{ r.shift.zreport_status or '-' }}</span></div>
+  {% if r.unfiscal %}<div class="b">Не фискализировано чеков: {{ r.unfiscal }}</div>{% endif %}
+</div>
+{% if auto %}<script>window.onload=()=>setTimeout(()=>window.print(),150);</script>{% endif %}
+</body>
+</html>

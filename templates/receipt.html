@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Чек №{{ sale.id }}</title>
+<style>
+  @page { size: {{ s.receipt_width or 80 }}mm auto; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Consolas", "Courier New", monospace; color: #000; background: #fff; }
+  .r { width: {{ (s.receipt_width|int) - 8 if s.receipt_width else 72 }}mm; margin: 0 auto; padding: 3mm 0 6mm;
+       font-size: {{ '11px' if (s.receipt_width or '80') == '80' else '10px' }}; line-height: 1.3; }
+  .c { text-align: center; }
+  .b { font-weight: bold; }
+  .big { font-size: 1.35em; }
+  .row { display: flex; justify-content: space-between; gap: 6px; }
+  .row span:last-child { text-align: right; white-space: nowrap; }
+  hr { border: 0; border-top: 1px dashed #000; margin: 5px 0; }
+  .item { margin: 3px 0; }
+  .muted { font-size: .9em; }
+  .qr { display: flex; justify-content: center; margin-top: 6px; }
+  .qr svg { width: 34mm; height: 34mm; }
+  .refund { border: 1px solid #000; padding: 2px; margin: 4px 0; }
+  @media screen { body { background: #e5e7eb; } .r { background: #fff; margin: 12px auto; padding: 4mm; box-shadow: 0 2px 10px #0002; } }
+</style>
+</head>
+<body>
+<div class="r">
+  <div class="c b big">{{ s.store_name }}</div>
+  {% if s.legal_name %}<div class="c">{{ s.legal_name }}</div>{% endif %}
+  {% if s.inn %}<div class="c">ИНН/STIR: {{ s.inn }}</div>{% endif %}
+  {% if s.address %}<div class="c muted">{{ s.address }}</div>{% endif %}
+  {% if s.phone %}<div class="c muted">Тел: {{ s.phone }}</div>{% endif %}
+  <hr>
+  {% if sale.operation == 'refund' %}<div class="c b refund">ВОЗВРАТ / QAYTARISH</div>{% else %}<div class="c b">ЧЕК ПРОДАЖИ / SAVDO CHEKI</div>{% endif %}
+  <div class="row"><span>Чек №</span><span>{{ sale.id }}</span></div>
+  <div class="row"><span>Дата</span><span>{{ sale.created_at }}</span></div>
+  <div class="row"><span>Кассир</span><span>{{ sale.cashier }}</span></div>
+  <hr>
+  {% for it in sale["items"] %}
+  <div class="item">
+    <div>{{ loop.index }}. {{ it.name }}</div>
+    <div class="row"><span>{{ '%g' % it.qty }} x {{ "{:,.0f}".format(it.price).replace(',', ' ') }}</span><span>{{ "{:,.0f}".format(it.qty * it.price).replace(',', ' ') }}</span></div>
+    {% if it.discount %}<div class="row muted"><span>Скидка</span><span>-{{ "{:,.0f}".format(it.discount).replace(',', ' ') }}</span></div>{% endif %}
+    {% if it.vat_percent %}<div class="row muted"><span>в т.ч. НДС {{ it.vat_percent }}%</span><span>{{ "{:,.2f}".format(it.vat).replace(',', ' ') }}</span></div>{% endif %}
+    {% if it.spic %}<div class="muted">ИКПУ: {{ it.spic }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  <hr>
+  {% if sale.discount %}<div class="row"><span>Скидка</span><span>-{{ "{:,.0f}".format(sale.discount).replace(',', ' ') }}</span></div>{% endif %}
+  <div class="row b big"><span>ИТОГО</span><span>{{ "{:,.0f}".format(sale.total).replace(',', ' ') }}</span></div>
+  {% if sale.cash %}<div class="row"><span>Наличные</span><span>{{ "{:,.0f}".format(sale.cash).replace(',', ' ') }}</span></div>{% endif %}
+  {% if sale.card %}<div class="row"><span>Карта</span><span>{{ "{:,.0f}".format(sale.card).replace(',', ' ') }}</span></div>{% endif %}
+  {% if sale.operation == 'sale' and sale.given and sale.given > sale.cash %}
+  <div class="row"><span>Получено</span><span>{{ "{:,.0f}".format(sale.given).replace(',', ' ') }}</span></div>
+  <div class="row"><span>Сдача</span><span>{{ "{:,.0f}".format(sale.change).replace(',', ' ') }}</span></div>
+  {% endif %}
+  {% if sale.bonus_used %}<div class="row"><span>Оплачено бонусами</span><span>{{ "{:,.0f}".format(sale.bonus_used).replace(',', ' ') }}</span></div>{% endif %}
+  {% if sale.debt %}<div class="row b"><span>{{ 'Списано с долга' if sale.operation == 'refund' else 'В ДОЛГ (насия)' }}</span><span>{{ "{:,.0f}".format(sale.debt).replace(',', ' ') }}</span></div>{% endif %}
+  {% if vat_total %}<div class="row"><span>в т.ч. НДС</span><span>{{ "{:,.2f}".format(vat_total).replace(',', ' ') }}</span></div>{% endif %}
+  <hr>
+  {% if sale.fiscal_status == 'ok' %}
+    <div class="row"><span>ФМ</span><span>{{ sale.terminal_id }}</span></div>
+    <div class="row"><span>Фиск. чек №</span><span>{{ sale.receipt_seq }}</span></div>
+    <div class="row"><span>ФП</span><span>{{ sale.fiscal_sign }}</span></div>
+    <div class="row"><span>Время ФМ</span><span>{{ sale.fiscal_datetime }}</span></div>
+    {% if qr %}<div class="qr">{{ qr|safe }}</div>{% endif %}
+    <div class="c b">ФИСКАЛЬНЫЙ ЧЕК</div>
+  {% elif sale.fiscal_status == 'none' %}
+    <div class="c">Нефискальный документ</div>
+  {% else %}
+    <div class="c b">ЧЕК НЕ ФИСКАЛИЗИРОВАН</div>
+    <div class="c muted">{{ sale.fiscal_error or 'Ожидает отправки в ФМ' }}</div>
+  {% endif %}
+  {% if cust %}
+  <hr>
+  <div class="row"><span>Клиент</span><span>{{ cust.name }}</span></div>
+  {% if sale.bonus_earned and sale.operation == 'sale' %}<div class="row"><span>Начислено бонусов</span><span>+{{ "{:,.0f}".format(sale.bonus_earned).replace(',', ' ') }}</span></div>{% endif %}
+  <div class="row"><span>Бонусов на счёте</span><span>{{ "{:,.0f}".format(cust.bonus).replace(',', ' ') }}</span></div>
+  {% if cust.debt %}<div class="row b"><span>Общий долг</span><span>{{ "{:,.0f}".format(cust.debt).replace(',', ' ') }}</span></div>{% endif %}
+  {% endif %}
+  {% if s.receipt_footer %}<hr><div class="c">{{ s.receipt_footer }}</div>{% endif %}
+</div>
+{% if auto %}<script>window.onload=()=>{setTimeout(()=>{window.print();},150)};</script>{% endif %}
+</body>
+</html>
