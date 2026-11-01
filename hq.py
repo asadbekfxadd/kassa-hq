@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS products (
   category TEXT, unit_name TEXT DEFAULT 'шт', units_code INTEGER DEFAULT 0, spic TEXT DEFAULT '',
   package_code TEXT DEFAULT '', owner_type INTEGER DEFAULT 0, vat_percent INTEGER DEFAULT 12,
   cost_price REAL DEFAULT 0, price REAL DEFAULT 0, min_stock REAL DEFAULT 0, active INTEGER DEFAULT 1,
-  updated_at TEXT NOT NULL, created_by TEXT);
+  updated_at TEXT NOT NULL, created_by TEXT, requires_marking INTEGER DEFAULT 0, restrict_kind INTEGER DEFAULT 0,
+  shelf_days INTEGER DEFAULT 0);
 CREATE INDEX IF NOT EXISTS ix_p_barcode ON products(barcode);
 CREATE INDEX IF NOT EXISTS ix_p_upd ON products(updated_at);
 CREATE TABLE IF NOT EXISTS stock (
@@ -158,6 +159,13 @@ def init():
     c.executescript(SCHEMA.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY").replace(" REAL", " DOUBLE PRECISION")
                     if PG else SCHEMA)
     c.commit()
+    # новые колонки для уже существующей базы
+    for col in ("requires_marking", "restrict_kind", "shelf_days"):
+        try:
+            c.execute(f"ALTER TABLE products ADD COLUMN {col} INTEGER DEFAULT 0")
+            c.commit()
+        except Exception:
+            c.rollback() if hasattr(c, "rollback") else None
     c.close()
 
 
@@ -244,7 +252,7 @@ def store_new_token(sid):
 
 # ================================================================ catalog
 PFIELDS = ["name", "barcode", "sku", "category", "unit_name", "units_code", "spic", "package_code", "owner_type",
-           "vat_percent", "cost_price", "price", "min_stock", "active"]
+           "vat_percent", "cost_price", "price", "min_stock", "active", "requires_marking", "restrict_kind", "shelf_days"]
 
 
 def clean_p(d):
@@ -254,7 +262,7 @@ def clean_p(d):
             v = d[k]
             if k in ("cost_price", "price", "min_stock"):
                 v = num(v)
-            elif k in ("units_code", "owner_type", "vat_percent", "active"):
+            elif k in ("units_code", "owner_type", "vat_percent", "active", "requires_marking", "restrict_kind", "shelf_days"):
                 v = int(num(v, 1 if k == "active" else 0))
             else:
                 v = str(v or "").strip()

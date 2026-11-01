@@ -42,11 +42,12 @@ F = {
     "date": ["дата", "период", "дата продажи", "date", "sana", "день"],
     "total": ["сумма", "выручка", "сумма продажи", "сумма продаж", "total", "summa"],
     "receipt": ["чек", "номер чека", "№ чека", "документ", "receipt"],
+    "shelf_days": ["срок годности", "срок годности дней", "срок хранения", "годность"],
 }
 KINDS = {
     "products": {"title": "Товары (каталог)",
                  "fields": ["name", "barcode", "sku", "category", "price", "cost_price", "spic", "package_code", "units_code",
-                            "vat_percent", "unit_name", "min_stock"], "required": ["name"]},
+                            "vat_percent", "unit_name", "min_stock", "shelf_days"], "required": ["name"]},
     "stock": {"title": "Остатки по магазинам", "fields": ["barcode", "sku", "name", "qty", "store", "price", "cost_price", "category"],
               "required": ["qty"], "one_of": ["barcode", "sku", "name"]},
     "customers": {"title": "Клиенты, бонусы и долги", "fields": ["customer", "phone", "card", "bonus", "debt", "discount_pct", "birthday", "store"],
@@ -59,7 +60,7 @@ LABELS = {"name": "Наименование", "barcode": "Штрихкод", "sk
           "vat_percent": "НДС %", "unit_name": "Ед. изм.", "min_stock": "Мин. остаток", "qty": "Количество / остаток",
           "store": "Магазин / склад", "phone": "Телефон", "customer": "Имя клиента", "card": "№ карты", "bonus": "Бонусы",
           "debt": "Долг (насия)", "discount_pct": "Скидка %", "birthday": "День рождения", "date": "Дата", "total": "Сумма",
-          "receipt": "№ чека"}
+          "receipt": "№ чека", "shelf_days": "Срок годности, дней"}
 
 MIG_SCHEMA = """
 CREATE TABLE IF NOT EXISTS imports (
@@ -341,7 +342,7 @@ def process(kind, rows, mapping, opts, c, import_id):
             for f in ("price", "cost_price", "min_stock"):
                 if f in mapping:
                     vals[f] = num(get(r, mapping, f))
-            for f in ("units_code", "vat_percent"):
+            for f in ("units_code", "vat_percent", "shelf_days"):
                 if f in mapping:
                     vals[f] = int(num(get(r, mapping, f)))
             if "price" in mapping and not vals.get("price"):

@@ -233,10 +233,12 @@ function editProd(uid){
     <div class="grid3">${f('pB','Штрихкод',p.barcode)}${f('pS','Артикул',p.sku)}${f('pC','Категория',p.category)}</div>
     <div class="grid3">${f('pCo','Себестоимость',p.cost_price,'number')}${f('pP','Цена продажи',p.price,'number')}${f('pM','Мин. остаток',p.min_stock,'number')}</div>
     <div class="grid3">${f('pI','ИКПУ',p.spic)}${f('pPk','Код упаковки',p.package_code)}${f('pU','Код ед.',p.units_code,'number')}</div>
-    <div class="grid3">${f('pUn','Ед. изм.',p.unit_name)}${f('pV','НДС %',p.vat_percent,'number')}<div></div></div>
+    <div class="grid3">${f('pUn','Ед. изм.',p.unit_name)}${f('pV','НДС %',p.vat_percent,'number')}${f('pSh','Срок годности, дней',p.shelf_days,'number')}</div>
+    <div class="grid3"><div><label>Маркировка Asl Belgisi</label><select id="pMk"><option value="0">Нет</option><option value="1" ${p.requires_marking?'selected':''}>Да — DataMatrix</option></select></div>
+      <div><label>Ограничение</label><select id="pRs"><option value="0">Нет</option><option value="1" ${p.restrict_kind==1?'selected':''}>18+</option><option value="2" ${p.restrict_kind==2?'selected':''}>Алкоголь</option></select></div><div></div></div>
     <div class="actions">${p.uid?'<button class="r" id="pDel" style="margin-right:auto">Удалить</button>':''}<button onclick="closeM()">Отмена</button><button class="p" id="pOk">Сохранить</button></div>`,'wide');
   const g=id=>m.querySelector(id).value;
-  m.querySelector('#pOk').onclick=async()=>{ try{ await api('/api/products',{method:'POST',body:{uid:p.uid,name:g('#pN'),barcode:g('#pB'),sku:g('#pS'),category:g('#pC'),cost_price:g('#pCo'),price:g('#pP'),min_stock:g('#pM'),spic:g('#pI'),package_code:g('#pPk'),units_code:g('#pU'),unit_name:g('#pUn'),vat_percent:g('#pV')}});
+  m.querySelector('#pOk').onclick=async()=>{ try{ await api('/api/products',{method:'POST',body:{uid:p.uid,name:g('#pN'),barcode:g('#pB'),sku:g('#pS'),category:g('#pC'),cost_price:g('#pCo'),price:g('#pP'),min_stock:g('#pM'),spic:g('#pI'),package_code:g('#pPk'),units_code:g('#pU'),unit_name:g('#pUn'),vat_percent:g('#pV'),shelf_days:g('#pSh'),requires_marking:g('#pMk'),restrict_kind:g('#pRs')}});
     m.remove(); loadCat(); toast('Сохранено — кассы получат изменения в течение минуты','ok'); }catch(e){ toast(e.message,'err'); } };
   m.querySelector('#pDel')?.addEventListener('click',async()=>{ if(!confirm('Удалить из каталога всех магазинов?')) return; await api('/api/products/'+p.uid,{method:'DELETE'}); m.remove(); loadCat(); });
 }
