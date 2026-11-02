@@ -89,7 +89,8 @@ svg.ch text{font-size:10.5px;fill:#8a94a6} svg.ch .hv:hover rect:first-child{fil
   <div class="box">
     <div class="row" style="margin-bottom:6px"><span style="width:36px;height:36px;border-radius:10px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800">Ц</span><div style="font-size:20px;font-weight:700">Центр сети</div></div>
     <div class="muted">Кабинет владельца</div>
-    <label>Пароль</label><input type="password" id="pw" autofocus>
+    <label>Логин (телефон или почта)</label><input id="lg" autocomplete="username" placeholder="Пусто — вход владельца по общему паролю" autofocus>
+    <label>Пароль</label><input type="password" id="pw" autocomplete="current-password">
     <button class="p" style="width:100%;margin-top:12px" onclick="doLogin()">Войти</button>
   </div>
 </div>
@@ -100,9 +101,9 @@ svg.ch text{font-size:10.5px;fill:#8a94a6} svg.ch .hv:hover rect:first-child{fil
   <nav id="nav">
     <div class="grp">Главное</div><button data-v="dash" title="Обзор сети"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="t">Обзор сети</span></button><button data-v="stores" title="Магазины"><svg viewBox="0 0 24 24"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg><span class="t">Магазины</span></button><button data-v="sales" title="Продажи"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span class="t">Продажи</span></button>
     <div class="grp">Товары и склад</div><button data-v="catalog" title="Каталог"><svg viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><span class="t">Каталог</span></button><button data-v="stock" title="Остатки"><svg viewBox="0 0 24 24"><path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/><path d="M6 18h12"/><path d="M6 14h12"/></svg><span class="t">Остатки</span></button><button data-v="docs" title="Поставки и перемещения"><svg viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg><span class="t">Поставки и перемещения</span></button>
-    <div class="grp">Система</div><button data-v="migrate" title="Переезд данных"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4"/></svg><span class="t">Переезд данных</span></button>
+    <div class="grp">Система</div><button data-v="users" title="Сотрудники и доступ"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="t">Сотрудники и доступ</span></button><button data-v="audit" title="Журнал действий"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg><span class="t">Журнал действий</span></button><button data-v="migrate" title="Переезд данных"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4"/></svg><span class="t">Переезд данных</span></button>
   </nav>
-  <div class="side-foot"><span class="t grow muted" style="font-size:12px">Владелец</span><button onclick="logout()" title="Выйти"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button></div>
+  <div class="side-foot"><div class="t grow" style="min-width:0;cursor:pointer" onclick="myAccount()" title="Мой аккаунт"><div id="meName" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div id="meRole" class="muted" style="font-size:11.5px"></div></div><button onclick="logout()" title="Выйти"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button></div>
 </aside>
 <div id="col">
 <header><h1 id="pageTitle">Обзор сети</h1><div class="right">
@@ -164,20 +165,25 @@ svg.ch text{font-size:10.5px;fill:#8a94a6} svg.ch .hv:hover rect:first-child{fil
   </section>
 
   <section class="view" id="v-stores">
-    <div class="card">
-      <div class="row" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Магазины</h2><button class="p" onclick="editStore()">+ Магазин</button></div>
-      <table><thead><tr><th>Магазин</th><th>Адрес</th><th>Связь</th><th>Подключение кассы</th><th></th></tr></thead><tbody id="storesBody"></tbody></table>
-      <div class="card" style="margin-top:12px;background:var(--brand-50);border-color:#dbeafe">
-        <b>Как подключить кассу магазина</b>
-        <ol style="margin:6px 0 0 18px;padding:0">
-          <li>На кассе: <b>Настройки → Сеть магазинов</b>.</li>
-          <li>Адрес Центра: <code id="hqUrl"></code></li>
-          <li>Токен магазина — кнопка «Скопировать токен» в строке нужного магазина.</li>
-          <li>«Подключить» — касса скачает каталог и начнёт отправлять продажи и остатки.</li>
-        </ol>
-      </div>
+    <div class="dtool"><div class="seg" id="stTabs"><button data-t="list" class="on">Филиалы</button><button data-t="cmp">Сравнение</button></div><span class="grow"></span>
+      <span id="stCmpBar" class="row hidden"><input type="date" id="cF" style="width:150px"><input type="date" id="cT" style="width:150px"><button class="p" onclick="loadCompare()">Показать</button></span>
+      <button class="p" id="stAdd" onclick="editStore()">+ Магазин</button></div>
+    <div id="stList"></div>
+    <div id="stCmp" class="hidden"></div>
+    <div class="card" id="stHow" style="margin-top:12px;background:var(--brand-50);border-color:#dbeafe">
+      <b>Как подключить кассу магазина</b>
+      <ol style="margin:6px 0 0 18px;padding:0"><li>На кассе: <b>Настройки → Сеть магазинов</b>.</li><li>Адрес Центра: <code id="hqUrl"></code></li>
+        <li>Токен магазина — «Токен кассы» в карточке филиала.</li><li>«Подключить» — касса скачает каталог и начнёт отправлять продажи и остатки.</li></ol>
     </div>
   </section>
+  <section class="view" id="v-users"><div class="card">
+    <div class="row wrap" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Сотрудники и доступ</h2><button onclick="showRoles()">Роли и права</button><button class="p" onclick="editUser()">+ Сотрудник</button></div>
+    <div style="overflow:auto"><table><thead><tr><th>Сотрудник</th><th>Логин</th><th>Роль</th><th>Доступ к магазинам</th><th>Последний вход</th><th>Статус</th><th></th></tr></thead><tbody id="usBody"></tbody></table></div>
+  </div></section>
+  <section class="view" id="v-audit"><div class="card">
+    <div class="row wrap" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Журнал действий</h2><select id="auSt" style="width:220px" onchange="loadAudit()"></select></div>
+    <div class="tbl"><table><thead><tr><th>Когда</th><th>Кто</th><th>Действие</th><th>Подробности</th><th>Магазин</th></tr></thead><tbody id="auBody"></tbody></table></div>
+  </div></section>
 </main>
 </div></div>
 <div id="mroot"></div><div id="toast"></div><div id="bellPanel" class="hidden"></div>
@@ -202,7 +208,7 @@ function modal(html,cls=''){ const m=document.createElement('div'); m.className=
   m.addEventListener('mousedown',e=>{ if(e.target===m) m.remove(); }); setTimeout(()=>{ const f=m.querySelector('[autofocus]')||m.querySelector('input'); f&&f.focus(); },30); return m; }
 const closeM=()=>$('#mroot .modal:last-child')?.remove();
 
-async function doLogin(){ try{ const r=await api('/api/login',{method:'POST',body:{password:$('#pw').value}}); boot(); }catch(e){ toast(e.message,'err'); } }
+async function doLogin(){ try{ const r=await api('/api/login',{method:'POST',body:{login:$('#lg').value,password:$('#pw').value}}); boot(); }catch(e){ toast(e.message,'err'); } }
 $('#pw').onkeydown=e=>{ if(e.key==='Enter') doLogin(); };
 async function logout(){ await api('/api/logout',{method:'POST'}); location.reload(); }
 async function boot(){
@@ -242,7 +248,7 @@ $('#cQ').oninput=()=>{ clearTimeout(ct); ct=setTimeout(loadCat,200); };
 async function loadCat(){
   CAT=await api('/api/products?q='+encodeURIComponent($('#cQ').value.trim()));
   $('#catBody').innerHTML=CAT.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.barcode||'')}</td><td>${esc(p.category||'')}</td><td>${p.spic?esc(p.spic):'<span class="red">нет</span>'}</td>
-    <td class="n">${fmt(p.cost_price)}</td><td class="n"><b>${fmt(p.price)}</b></td><td class="n">${fq(p.total_stock)}</td><td class="muted">${esc(p.created_by||'')}</td>
+    <td class="n">${p.cost_price==null?'<span class="muted">—</span>':fmt(p.cost_price)}</td><td class="n"><b>${fmt(p.price)}</b></td><td class="n">${fq(p.total_stock)}</td><td class="muted">${esc(p.created_by||'')}</td>
     <td><button class="ghost" onclick="editProd('${p.uid}')">Изм.</button></td></tr>`).join('')||'<tr><td colspan="9" class="muted">Каталог пуст — импортируйте из Excel</td></tr>';
 }
 function editProd(uid){
@@ -272,7 +278,7 @@ async function loadStock(){
   $('#stHead').innerHTML=`<tr><th>Товар</th><th>Штрихкод</th>${r.stores.map(s=>`<th class="n">${esc(s.name)}</th>`).join('')}<th class="n">Всего</th><th class="n">На сумму</th></tr>`;
   $('#stBody').innerHTML=r.items.map(p=>`<tr><td>${esc(p.name)}</td><td class="muted">${esc(p.barcode||'')}</td>${r.stores.map(s=>{ const v=p.by_store[String(s.id)]; const low=p.min_stock&&(v||0)<=p.min_stock;
       return `<td class="n" style="${low?'background:#fef2f2;color:#dc2626;font-weight:600':''}">${v===undefined?'<span class="muted">—</span>':fq(v)}</td>`; }).join('')}
-    <td class="n"><b>${fq(p.total)}</b></td><td class="n">${fmt(p.total*(p.cost_price||0))}</td></tr>`).join('')||`<tr><td class="muted" colspan="${r.stores.length+4}">Нет данных — подключите кассы</td></tr>`;
+    <td class="n"><b>${fq(p.total)}</b></td><td class="n">${p.cost_price==null?'—':fmt(p.total*(p.cost_price||0))}</td></tr>`).join('')||`<tr><td class="muted" colspan="${r.stores.length+4}">Нет данных — подключите кассы</td></tr>`;
 }
 
 // ---------------- sales
@@ -418,6 +424,7 @@ async function mgRun(apply){
 setInterval(()=>{ if($('#v-dash').classList.contains('on')&&!$('#mroot .modal')) loadDash(); },60000);
 </script>
 <script src="/hqdash.js"></script>
+<script src="/hqadmin.js"></script>
 <script>boot();
 </script>
 </body>

@@ -22,27 +22,29 @@ async function loadDash(){
       ${K('Выручка за месяц',fmt(r.month.net),chgTag(r.month_chg))}
       ${K('Продаж (чеков)',fmt(c.checks),chgTag(ch.checks))}
       ${K('Средний чек',fmt(c.avg),chgTag(ch.avg))}
-      ${K('Валовая прибыль',fmt(c.profit),chgTag(ch.profit),`маржа ${c.margin}%`)}
+      ${r.finance?K('Валовая прибыль',fmt(c.profit),chgTag(ch.profit),`маржа ${c.margin}%`):K('План месяца',r.month_plan?pct(r.month.net,r.month_plan)+'%':'не задан','',r.month_plan?'выполнено':'')}
       ${K('Продано товаров',fq(Math.round(c.items*10)/10),chgTag(ch.items))}
       ${K('Активных магазинов',`${r.active_stores} <span class="muted" style="font-size:14px">из ${S.length}</span>`,'',r.active_stores<S.length?'<span class="amber">есть без связи</span>':'все на связи')}
-      ${K('Товарный остаток',short(r.stock_value),'','по закупке')}
+      ${r.stock_value==null?K('Товаров без продаж',r.nosale.n,'','30 дней'):K('Товарный остаток',short(r.stock_value),'','по закупке')}
     </div>
     <div class="dgrid">
       <div class="card dc" style="grid-column:span 2"><div class="row"><b class="grow">Динамика продаж сети</b><span class="lg"><i style="background:var(--brand)"></i>${PER[DP][0]}</span><span class="lg"><i class="ln"></i>${cmp.split(' к ')[0]}</span></div><div class="body" id="dDyn"></div></div>
       <div class="card dc"><div class="row"><b class="grow">Требует внимания</b><span class="muted" id="dAlN"></span></div><div class="body" id="dAlerts"></div></div>
       <div class="card dc"><b>Выручка по магазинам</b><div class="body">${S.length?hBars([...S].sort((a,b)=>b.net-a.net).map(s=>({l:`<span class="dot ${s.online?'on':''}"></span>${esc(s.name)}`,v:s.net,sub:pct(s.net,c.net)+'%'}))):'<div class="pad muted">Добавьте магазины</div>'}</div></div>
-      <div class="card dc"><b>Прибыль по магазинам</b><div class="body">${S.length?hBars([...S].sort((a,b)=>b.profit-a.profit).map(s=>({l:esc(s.name),v:s.profit,sub:s.margin+'%'}))):''}</div></div>
+      ${r.finance?`<div class="card dc"><b>Прибыль по магазинам</b><div class="body">${S.length?hBars([...S].sort((a,b)=>b.profit-a.profit).map(s=>({l:esc(s.name),v:s.profit,sub:s.margin+'%'}))):''}</div></div>`
+        :`<div class="card dc"><b>План месяца по магазинам</b><div class="body">${planBars(r)}</div></div>`}
+      ${r.finance?`<div class="card dc"><b>Выполнение плана месяца</b><div class="body">${planBars(r)}</div></div>`:''}
       <div class="card dc"><b>Продажи по категориям</b><div class="body">${r.categories.length?hBars(r.categories.map(x=>({l:esc(x.name),v:x.net,sub:pct(x.net,c.net)+'%'}))):'<div class="pad muted">Нет продаж за период</div>'}</div></div>
       <div class="card dc"><div class="row"><b class="grow">Топ-10 товаров сети</b><span class="muted" style="font-size:12px">выручка</span></div><div class="body">
         ${r.top.map((x,i)=>`<div class="dl"><span class="rk">${i+1}</span><span class="grow ell">${esc(x.name)}</span><span class="muted">${fq(x.q)}</span><b class="num">${fmt(x.t)}</b></div>`).join('')||'<div class="pad muted">Нет продаж</div>'}</div></div>
-      <div class="card dc"><div class="row"><b class="grow">Товары без продаж 30 дней</b><span class="badge ${r.nosale.n?'pend':'ok'}">${r.nosale.n} · ${short(r.nosale.value)}</span></div><div class="body">
-        ${r.nosale.items.map(x=>`<div class="dl"><span class="grow ell">${esc(x.name)}</span><span class="muted">${fq(x.qty)} шт</span><b class="num">${fmt(x.value)}</b></div>`).join('')||'<div class="pad muted">Все товары продаются ✓</div>'}</div></div>
+      <div class="card dc"><div class="row"><b class="grow">Товары без продаж 30 дней</b><span class="badge ${r.nosale.n?'pend':'ok'}">${r.nosale.n}${r.nosale.value!=null?' · '+short(r.nosale.value):''}</span></div><div class="body">
+        ${r.nosale.items.map(x=>`<div class="dl"><span class="grow ell">${esc(x.name)}</span><span class="muted">${fq(x.qty)} шт</span><b class="num">${x.value==null?'':fmt(x.value)}</b></div>`).join('')||'<div class="pad muted">Все товары продаются ✓</div>'}</div></div>
       <div class="card dc"><div class="row"><b class="grow">Динамика среднего чека</b><b>${fmt(c.avg)}</b></div><div class="body" id="dAvg"></div></div>
     </div>
     <div class="card" style="margin-top:12px"><div class="row" style="margin-bottom:8px"><b class="grow">Сравнение магазинов · ${PER[DP][0].toLowerCase()}</b><button class="ghost" onclick="show('stores')">Управление магазинами →</button></div>
-      <div style="overflow:auto"><table><thead><tr><th>Магазин</th><th>Связь</th><th class="n">Выручка</th><th class="n">К прошлому</th><th class="n">Чеков</th><th class="n">Средний чек</th><th class="n">Прибыль</th><th class="n">Маржа</th><th class="n">Продано</th><th class="n">Остаток (закупка)</th><th class="n">SKU</th></tr></thead><tbody>
+      <div style="overflow:auto"><table><thead><tr><th>Магазин</th><th>Связь</th><th class="n">Выручка</th><th class="n">К прошлому</th><th class="n">Чеков</th><th class="n">Средний чек</th>${r.finance?'<th class="n">Прибыль</th><th class="n">Маржа</th>':''}<th class="n">План месяца</th><th class="n">Продано</th><th class="n">Остаток (закупка)</th><th class="n">SKU</th></tr></thead><tbody>
       ${S.map(s=>`<tr><td><b>${esc(s.name)}</b><div class="muted" style="font-size:12px">${esc(s.address||'')}</div></td><td><span class="dot ${s.online?'on':''}"></span>${s.online?'на связи':(s.last_seen?s.last_seen.slice(5,16):'не подключён')}</td>
-        <td class="n"><b>${fmt(s.net)}</b></td><td class="n">${chgTag(s.chg)}</td><td class="n">${s.checks}</td><td class="n">${fmt(s.avg)}</td><td class="n green">${fmt(s.profit)}</td><td class="n">${s.margin}%</td><td class="n">${fq(Math.round(s.items))}</td><td class="n">${fmt(s.stock_value)}</td><td class="n">${s.skus}</td></tr>`).join('')||'<tr><td colspan="11" class="muted">Магазинов нет — добавьте во вкладке «Магазины»</td></tr>'}
+        <td class="n"><b>${fmt(s.net)}</b></td><td class="n">${chgTag(s.chg)}</td><td class="n">${s.checks}</td><td class="n">${fmt(s.avg)}</td>${r.finance?`<td class="n green">${fmt(s.profit)}</td><td class="n">${s.margin}%</td>`:''}<td class="n">${planCell(r,s)}</td><td class="n">${fq(Math.round(s.items))}</td><td class="n">${s.stock_value==null?'—':fmt(s.stock_value)}</td><td class="n">${s.skus}</td></tr>`).join('')||'<tr><td colspan="11" class="muted">Магазинов нет — добавьте во вкладке «Магазины»</td></tr>'}
       </tbody></table></div></div>`;
   $$('#dPer button').forEach(b=>b.onclick=()=>{ DP=b.dataset.p; loadDash(); });
   drawDyn(); drawAvg(); loadAlerts();
@@ -88,3 +90,10 @@ $('#bellBtn').onclick=e=>{ e.stopPropagation(); const p=$('#bellPanel'), r=$('#b
   p.classList.toggle('hidden'); if(!p.classList.contains('hidden')){ renderBell(); loadAlerts(); } };
 document.addEventListener('click',e=>{ if(!e.target.closest('#bellPanel')&&!e.target.closest('#bellBtn')) closeBell(); });
 setInterval(()=>{ if(!$('#app').classList.contains('hidden')) loadAlerts(); },120000);
+
+function planCell(r,s){ const f=(r.month_store[s.id]||{}).net||0; if(!s.plan) return '<span class="muted">не задан</span>';
+  const p=pct(f,s.plan); return `<b class="${p>=100?'green':p<70?'red':''}">${p}%</b><div class="muted" style="font-size:11px">${fmt(f)} из ${fmt(s.plan)}</div>`; }
+function planBars(r){ const S=r.stores.filter(s=>s.plan); if(!S.length) return '<div class="pad muted">План не задан. Откройте магазин → «План продаж».</div>';
+  return S.map(s=>{ const f=(r.month_store[s.id]||{}).net||0, p=pct(f,s.plan);
+    return `<div class="hb"><div class="row" style="font-size:13px"><span class="grow ell">${esc(s.name)}</span><b class="${p>=100?'green':''}">${p}%</b><span class="muted" style="width:96px;text-align:right">${short(f)} / ${short(s.plan)}</span></div>
+      <div class="tr"><i style="width:${Math.min(100,p)}%;background:${p>=100?'var(--green)':p<70?'var(--amber)':'var(--brand)'}"></i></div></div>`; }).join(''); }

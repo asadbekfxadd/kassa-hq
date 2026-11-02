@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS doc_lines (
   id INTEGER PRIMARY KEY AUTOINCREMENT, doc_uid TEXT NOT NULL, product_uid TEXT NOT NULL,
   qty REAL NOT NULL DEFAULT 0, qty_fact REAL, cost REAL DEFAULT 0, price REAL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS ix_dl_doc ON doc_lines(doc_uid);
+CREATE TABLE IF NOT EXISTS store_plans (
+  store_id INTEGER NOT NULL, month TEXT NOT NULL, amount REAL NOT NULL DEFAULT 0, updated_at TEXT, PRIMARY KEY (store_id, month));
 """
 
 
@@ -161,9 +163,13 @@ def init():
     c.commit()
     # новые колонки для уже существующей базы
     for col, typ in (("requires_marking", "INTEGER DEFAULT 0"), ("restrict_kind", "INTEGER DEFAULT 0"),
-                     ("shelf_days", "INTEGER DEFAULT 0"), ("wholesale_price", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0")):
+                     ("shelf_days", "INTEGER DEFAULT 0"), ("wholesale_price", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"),
+                     ("stores.phone", "TEXT"), ("stores.manager_id", "INTEGER"), ("stores.registers", "INTEGER DEFAULT 1"),
+                     ("stores.area", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"), ("stores.opened_on", "TEXT"),
+                     ("stores.city", "TEXT")):
+        tbl, col = col.split(".") if "." in col else ("products", col)
         try:
-            c.execute(f"ALTER TABLE products ADD COLUMN {col} {typ}")
+            c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {typ}")
             c.commit()
         except Exception:
             c.rollback() if hasattr(c, "rollback") else None
@@ -183,43 +189,27 @@ def owner(fn):
     return w
 
 
-@app.post("/api/login")
-def login():
-    pw = os.environ.get("HQ_PASSWORD", "admin")
-    if (request.json or {}).get("password") != pw:
-        return err("Неверный пароль", 401)
-    session.permanent = True
-    session["owner"] = 1
-    return jsonify(ok=True, default=pw == "admin")
-
-
-@app.post("/api/logout")
-def logout():
-    session.clear()
-    return jsonify(ok=True)
-
-
 @app.get("/")
 def index():
     return send_from_directory(os.path.join(BASE, "templates"), "hq.html")
 
 
-@app.get("/hqdash.js")
-def hqdash_js():
-    return send_from_directory(os.path.join(BASE, "templates"), "hqdash.js", mimetype="application/javascript")
-
-
-@app.get("/api/me")
-@owner
-def me():
-    return jsonify(ok=True, default_password=os.environ.get("HQ_PASSWORD", "admin") == "admin")
+@app.get("/<any('hqdash.js','hqadmin.js'):name>")
+def hq_js(name):
+    return send_from_directory(os.path.join(BASE, "templates"), name, mimetype="application/javascript")
 
 
 # ================================================================ stores
 @app.get("/api/stores")
 @owner
 def stores():
-    rows = q("SELECT * FROM stores ORDER BY id")
+    f, a = rbac.sf("s.id")
+    rows = q(f"""SELECT s.*, u.name AS manager_name,
+                 (SELECT COUNT(*) FROM user_stores us JOIN users uu ON uu.id=us.user_id WHERE us.store_id=s.id AND uu.active=1) employees
+                 FROM stores s LEFT JOIN users u ON u.id=s.manager_id WHERE 1=1{f} ORDER BY s.id""", a)
+    if not rbac.can("stores.edit"):
+        for r in rows:
+            r.pop("token", None)
     t = tnow()
     for r in rows:
         r["online"] = bool(r["last_seen"]) and (t - datetime.strptime(r["last_seen"], "%Y-%m-%d %H:%M:%S")).total_seconds() < 180
@@ -234,13 +224,21 @@ def store_save():
     name = (d.get("name") or "").strip()
     if not name:
         return err("Укажите название")
+    if d.get("id") and not rbac.store_allowed(d["id"]):
+        return err("Нет доступа к этому магазину", 403)
+    extra = (d.get("phone", ""), int(num(d.get("manager_id"))) or None, max(1, int(num(d.get("registers"), 1))),
+             num(d.get("area")), d.get("opened_on") or None, d.get("city", ""))
     c = con()
     if d.get("id"):
-        c.execute("UPDATE stores SET name=?, address=?, active=? WHERE id=?",
-                  (name, d.get("address", ""), int(d.get("active", 1)), d["id"]))
+        old = dict(c.execute("SELECT active FROM stores WHERE id=?", (d["id"],)).fetchone() or {})
+        c.execute("""UPDATE stores SET name=?, address=?, active=?, phone=?, manager_id=?, registers=?, area=?, opened_on=?, city=?
+                     WHERE id=?""", (name, d.get("address", ""), int(d.get("active", 1))) + extra + (d["id"],))
+        act = "Магазин деактивирован" if old.get("active") and not int(d.get("active", 1)) else "Изменён магазин"
+        rbac.audit(act, name, d["id"], c=c)
     else:
-        c.execute("INSERT INTO stores(uid,name,address,token,created_at) VALUES(?,?,?,?,?)",
-                  (uuid.uuid4().hex, name, d.get("address", ""), secrets.token_hex(20), now()))
+        c.execute("""INSERT INTO stores(uid,name,address,token,created_at,phone,manager_id,registers,area,opened_on,city)
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (uuid.uuid4().hex, name, d.get("address", ""), secrets.token_hex(20), now()) + extra)
+        rbac.audit("Создан магазин", name, c=c)
     c.commit()
     c.close()
     return jsonify(ok=True)
@@ -249,6 +247,9 @@ def store_save():
 @app.post("/api/stores/<int:sid>/token")
 @owner
 def store_new_token(sid):
+    if not rbac.store_allowed(sid):
+        return err("Нет доступа к этому магазину", 403)
+    rbac.audit("Выпущен новый токен кассы", "", sid)
     c = con()
     c.execute("UPDATE stores SET token=? WHERE id=?", (secrets.token_hex(20), sid))
     c.commit()
@@ -287,8 +288,12 @@ def products():
     if t:
         where.append("(name LIKE ? OR barcode LIKE ? OR sku LIKE ?)")
         args += [f"%{t}%"] * 3
-    rows = q(f"""SELECT p.*, (SELECT COALESCE(SUM(qty),0) FROM stock s WHERE s.product_uid=p.uid) AS total_stock
-                 FROM products p WHERE {' AND '.join(where)} ORDER BY name LIMIT 3000""", args)
+    sfx, sa = rbac.sf("s.store_id")
+    rows = q(f"""SELECT p.*, (SELECT COALESCE(SUM(qty),0) FROM stock s WHERE s.product_uid=p.uid{sfx}) AS total_stock
+                 FROM products p WHERE {' AND '.join(where)} ORDER BY name LIMIT 3000""", sa + tuple(args))
+    if not rbac.can("finance"):        # себестоимость видят только роли с правом «Прибыль»
+        for r in rows:
+            r["cost_price"] = None
     return jsonify(rows)
 
 
@@ -308,13 +313,17 @@ def product_save():
             return err("Товар с таким штрихкодом уже есть")
     p["updated_at"] = now()
     if d.get("uid"):
+        old = dict(c.execute("SELECT price, cost_price FROM products WHERE uid=?", (d["uid"],)).fetchone() or {})
         c.execute(f"UPDATE products SET {','.join(k + '=?' for k in p)} WHERE uid=?", list(p.values()) + [d["uid"]])
         uid = d["uid"]
+        ch = [f"{k}: {old.get(k):g} → {p[k]:g}" for k in ("price", "cost_price") if k in p and old.get(k) is not None and abs((old.get(k) or 0) - (p[k] or 0)) > 0.001]
+        rbac.audit("Изменён товар", p["name"] + (" · " + ", ".join(ch) if ch else ""), c=c)
     else:
         uid = uuid.uuid4().hex
         p["uid"] = uid
-        p["created_by"] = "Центр"
+        p["created_by"] = (rbac.user() or {}).get("name") or "Центр"
         c.execute(f"INSERT INTO products({','.join(p)}) VALUES({','.join('?' * len(p))})", list(p.values()))
+        rbac.audit("Создан товар", p["name"], c=c)
     c.commit()
     c.close()
     return jsonify(q("SELECT * FROM products WHERE uid=?", (uid,), one=True))
@@ -325,6 +334,7 @@ def product_save():
 def product_del(uid):
     c = con()
     c.execute("UPDATE products SET active=0, updated_at=? WHERE uid=?", (now(), uid))
+    rbac.audit("Товар удалён из каталога", uid, c=c)
     c.commit()
     c.close()
     return jsonify(ok=True)
@@ -432,16 +442,21 @@ def stock_matrix():
     if t:
         where += " AND (p.name LIKE ? OR p.barcode LIKE ?)"
         args += [f"%{t}%"] * 2
-    st = q("SELECT id, name FROM stores WHERE active=1 ORDER BY id")
+    sfx, sa = rbac.sf("id")
+    st = q(f"SELECT id, name FROM stores WHERE active=1{sfx} ORDER BY id", sa)
     prods = q(f"SELECT uid, name, barcode, price, cost_price, min_stock FROM products p WHERE {where} ORDER BY name LIMIT 1000", args)
     m = {}
-    for r in q("SELECT store_id, product_uid, qty FROM stock"):
+    sfx2, sa2 = rbac.sf("store_id")
+    for r in q(f"SELECT store_id, product_uid, qty FROM stock WHERE 1=1{sfx2}", sa2):
         m.setdefault(r["product_uid"], {})[str(r["store_id"])] = r["qty"]
     for p in prods:
         p["by_store"] = m.get(p["uid"], {})
         p["total"] = sum(p["by_store"].values())
     if request.args.get("low"):
         prods = [p for p in prods if p["min_stock"] and any(p["by_store"].get(str(s["id"]), 0) <= p["min_stock"] for s in st)]
+    if not rbac.can("finance"):
+        for p in prods:
+            p["cost_price"] = None
     return jsonify(stores=st, items=prods)
 
 
@@ -469,6 +484,16 @@ def load_doc(uid, c=None):
     return d
 
 
+def _doc_scope():
+    ids = rbac.store_ids()
+    if ids is None:
+        return "", ()
+    if not ids:
+        return " AND 1=0", ()
+    ph = ",".join("?" * len(ids))
+    return f" AND (d.to_store_id IN ({ph}) OR d.from_store_id IN ({ph}))", tuple(ids) * 2
+
+
 @app.get("/api/docs")
 @owner
 def docs_list():
@@ -478,7 +503,7 @@ def docs_list():
                 (SELECT COALESCE(SUM(qty_fact),0) FROM doc_lines WHERE doc_uid=d.uid) qty_fact,
                 (SELECT COALESCE(SUM(qty*cost),0) FROM doc_lines WHERE doc_uid=d.uid) sum
                 FROM docs d LEFT JOIN stores fs ON fs.id=d.from_store_id LEFT JOIN stores ts ON ts.id=d.to_store_id
-                ORDER BY d.id DESC LIMIT 300""")
+                WHERE 1=1{f} ORDER BY d.id DESC LIMIT 300""".replace("{f}", _doc_scope()[0]), _doc_scope()[1])
     return jsonify(rows)
 
 
@@ -486,6 +511,8 @@ def docs_list():
 @owner
 def doc_get(uid):
     d = load_doc(uid)
+    if d and not (rbac.store_allowed(d["to_store_id"]) or rbac.store_allowed(d["from_store_id"])):
+        return err("Нет доступа", 403)
     return jsonify(d) if d else err("Не найдено", 404)
 
 
@@ -501,6 +528,8 @@ def doc_create():
         return err("Выберите магазин-получатель")
     if typ == "transfer" and (not from_id or from_id == to_id):
         return err("Выберите магазин-отправитель (отличный от получателя)")
+    if not (rbac.store_allowed(to_id) or (from_id and rbac.store_allowed(from_id))):
+        return err("Нет доступа к выбранным магазинам", 403)
     lines = [l for l in (d.get("lines") or []) if num(l.get("qty")) > 0 and l.get("product_uid")]
     if not lines:
         return err("Добавьте товары")
@@ -512,7 +541,8 @@ def doc_create():
     c.execute("""INSERT INTO docs(uid,number,type,status,from_store_id,to_store_id,supplier,note,created_at,created_by,
                  sent_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
               (uid, doc_number(c, typ), typ, status, from_id, to_id, d.get("supplier", ""), d.get("note", ""), t,
-               "Центр", t if status == "sent" else None, t))
+               (rbac.user() or {}).get("name") or "Центр", t if status == "sent" else None, t))
+    rbac.audit("Создана накладная" if typ == "supply" else "Создано перемещение", f"{len(lines)} строк", to_id, c=c)
     for l in lines:
         c.execute("INSERT INTO doc_lines(doc_uid,product_uid,qty,cost,price) VALUES(?,?,?,?,?)",
                   (uid, l["product_uid"], num(l["qty"]), num(l.get("cost")), num(l.get("price"))))
@@ -574,7 +604,8 @@ def doc_cancel(uid):
 def dashboard():
     day = request.args.get("day") or tnow().strftime("%Y-%m-%d")
     a = (day + " 00:00:00", day + " 23:59:59")
-    st = q("SELECT id, name, last_seen FROM stores WHERE active=1 ORDER BY id")
+    sfx, sa = rbac.sf("id")
+    st = q(f"SELECT id, name, last_seen FROM stores WHERE active=1{sfx} ORDER BY id", sa)
     per = {r["store_id"]: r for r in q("""SELECT store_id,
             SUM(CASE WHEN operation='sale' THEN total ELSE -total END) net,
             COUNT(CASE WHEN operation='sale' THEN 1 END) checks,
@@ -614,7 +645,11 @@ def sales_report():
     dto = request.args.get("to") or tnow().strftime("%Y-%m-%d")
     a = (dfrom + " 00:00:00", dto + " 23:59:59")
     sid = request.args.get("store")
+    if sid and not rbac.store_allowed(sid):
+        return err("Нет доступа к магазину", 403)
     f, args = ("AND s.store_id=?", a + (int(sid),)) if sid else ("", a)
+    sfx, sa = rbac.sf("s.store_id")
+    f, args = f + sfx, args + sa
     by_store = q(f"""SELECT MAX(st.name) AS name, SUM(CASE WHEN s.operation='sale' THEN s.total ELSE -s.total END) net,
                      COUNT(CASE WHEN s.operation='sale' THEN 1 END) checks FROM sales s JOIN stores st ON st.id=s.store_id
                      WHERE s.created_at BETWEEN ? AND ? {f} GROUP BY s.store_id ORDER BY net DESC""", args)
@@ -822,10 +857,14 @@ def health():
 
 
 import sys  # noqa: E402
+import rbac  # noqa: E402
+rbac.register(sys.modules[__name__])
 import migrate  # noqa: E402
 migrate.register(sys.modules[__name__])
 import hqdash  # noqa: E402
 hqdash.register(sys.modules[__name__])
+import stores2  # noqa: E402
+stores2.register(sys.modules[__name__])
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
