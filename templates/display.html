@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Экран покупателя</title>
 <style>
-  :root{--brand:#0f766e}
+  :root{--brand:#1d4ed8}
   *{box-sizing:border-box} html,body{margin:0;height:100%;font-family:"Segoe UI",system-ui,sans-serif;background:#0b1220;color:#fff;overflow:hidden}
   .wrap{display:grid;grid-template-columns:1.4fr 1fr;height:100%}
   .left{padding:28px 32px;display:flex;flex-direction:column;min-height:0}
@@ -36,7 +36,7 @@ let V=-1, CUR='';
 async function tick(){
   try{
     const r=await (await fetch('/api/display')).json();
-    document.documentElement.style.setProperty('--brand', r.color||'#0f766e');
+    document.documentElement.style.setProperty('--brand', r.color||'#1d4ed8');
     document.getElementById('store').textContent=r.store||'';
     if(r.v===V) return; V=r.v; const s=r.state||{}; CUR=r.currency||'';
     const items=s.items||[];

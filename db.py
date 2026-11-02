@@ -331,7 +331,7 @@ DEFAULT_SETTINGS = {
     "auto_print": "1",
     "allow_negative_stock": "1",
     "sync_interval_min": "5",
-    "theme_color": "#0f766e",
+    "theme_color": "#1d4ed8",
     # лояльность
     "bonus_pct": "2",                 # % кэшбэка бонусами с покупки
     "bonus_max_pay_pct": "50",        # сколько % чека можно оплатить бонусами
@@ -375,6 +375,8 @@ def connect():
     os.makedirs(DATA_DIR, exist_ok=True)
     con = sqlite3.connect(DB_PATH, timeout=15)
     con.row_factory = sqlite3.Row
+    # LIKE в SQLite не различает регистр только для латиницы — для кириллицы ищем через ulower()
+    con.create_function("ulower", 1, lambda v: v.lower() if isinstance(v, str) else v, deterministic=True)
     con.execute("PRAGMA foreign_keys=ON")
     con.execute("PRAGMA journal_mode=WAL")
     return con

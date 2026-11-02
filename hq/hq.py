@@ -204,6 +204,11 @@ def index():
     return send_from_directory(os.path.join(BASE, "templates"), "hq.html")
 
 
+@app.get("/hqdash.js")
+def hqdash_js():
+    return send_from_directory(os.path.join(BASE, "templates"), "hqdash.js", mimetype="application/javascript")
+
+
 @app.get("/api/me")
 @owner
 def me():
@@ -819,6 +824,8 @@ def health():
 import sys  # noqa: E402
 import migrate  # noqa: E402
 migrate.register(sys.modules[__name__])
+import hqdash  # noqa: E402
+hqdash.register(sys.modules[__name__])
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

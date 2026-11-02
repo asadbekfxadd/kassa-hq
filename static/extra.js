@@ -53,7 +53,7 @@ function pickCustomer(cb){
     <input id="pcQ" placeholder="Телефон, имя или карта — начните вводить" autofocus>
     <div id="pcList" style="margin-top:8px;max-height:320px;overflow:auto"></div>
     <div class="actions"><button onclick="closeModal()">Отмена</button><button class="p" id="pcNew">+ Новый клиент</button></div>`);
-  const draw=()=>{ m.querySelector('#pcList').innerHTML = list.map((c,i)=>`<div data-i="${i}" style="padding:9px 10px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;${i===idx?'background:#f0fdfa':''}">
+  const draw=()=>{ m.querySelector('#pcList').innerHTML = list.map((c,i)=>`<div data-i="${i}" style="padding:9px 10px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;${i===idx?'background:#eff6ff':''}">
       <span><b>${esc(c.name)}</b> <span class="muted">${esc(c.phone||'')}</span></span><span class="muted">бонусы ${fmt(c.bonus)}${c.debt>0?` · <span class="red">долг ${fmt(c.debt)}</span>`:''}</span></div>`).join('') || '<div class="muted" style="padding:10px">Не найдено — нажмите «Новый клиент»</div>';
     m.querySelectorAll('[data-i]').forEach(d=>d.onclick=()=>choose(list[+d.dataset.i])); };
   const choose=c=>{ closeModal(m); if(cb) cb(c); else setCustomer(c); };

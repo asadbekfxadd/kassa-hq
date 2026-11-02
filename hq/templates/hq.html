@@ -5,50 +5,89 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Центр — сеть магазинов</title>
 <style>
-:root{--brand:#0f766e;--bg:#f3f4f6;--card:#fff;--text:#111827;--muted:#6b7280;--line:#e5e7eb;--red:#dc2626;--green:#16a34a;--amber:#d97706;--blue:#2563eb}
-*{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 "Segoe UI",system-ui,sans-serif}
-button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:9px 14px;background:#e5e7eb;color:var(--text)}
-button.p{background:var(--brand);color:#fff} button.r{background:var(--red);color:#fff} button.ghost{background:transparent;border:1px solid var(--line)} button.b{background:var(--blue);color:#fff}
-input,select{font:inherit;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;width:100%}
-label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
-table{width:100%;border-collapse:collapse} th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
-th{font-size:12px;color:var(--muted);background:#fafafa;position:sticky;top:0} td.n,th.n{text-align:right;white-space:nowrap}
+:root{--brand:#1d4ed8;--brand-d:#1e3a8a;--brand-50:#eff6ff;--bg:#f6f7f9;--card:#fff;--text:#0b0f19;--text-2:#374151;--muted:#6b7280;--faint:#9ca3af;
+  --line:#e7e9ee;--line-2:#d5d9e0;--hover:#f3f4f6;--red:#dc2626;--green:#16a34a;--amber:#d97706;--blue:#1d4ed8;
+  --r:10px;--shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);--shadow-lg:0 12px 32px rgba(16,24,40,.14);--ease:cubic-bezier(.2,.8,.2,1)}
+*{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 "Inter","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);border-radius:var(--r);padding:8px 14px;background:#fff;color:var(--text);font-weight:500;transition:background .15s,border-color .15s}
+button:hover{background:var(--hover)} button:active{transform:translateY(1px)}
+button.p{background:var(--brand);border-color:var(--brand);color:#fff} button.p:hover{background:var(--brand-d)} button.r{background:var(--red);border-color:var(--red);color:#fff}
+button.ghost{background:transparent} button.b{background:var(--blue);border-color:var(--blue);color:#fff}
+input,select{font:inherit;padding:8px 11px;border:1px solid var(--line-2);border-radius:var(--r);background:#fff;width:100%;color:var(--text);transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(29,78,216,.16)}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:500}
+table{width:100%;border-collapse:collapse} th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:11.5px;color:var(--muted);background:#fafbfc;position:sticky;top:0;text-transform:uppercase;letter-spacing:.03em;font-weight:600} td.n,th.n{text-align:right;white-space:nowrap}
+tbody tr:hover{background:#fafbfc}
 .hidden{display:none!important} .muted{color:var(--muted)} .red{color:var(--red)} .green{color:var(--green)} .amber{color:var(--amber)}
-.card{background:var(--card);border-radius:12px;box-shadow:0 1px 3px #0001;padding:14px}
+.card{background:var(--card);border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow);padding:16px}
 .row{display:flex;gap:10px;align-items:center} .wrap{flex-wrap:wrap} .grow{flex:1}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px} .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 12px}
-.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:#e5e7eb}
-.badge.ok{background:#dcfce7;color:#166534} .badge.err{background:#fee2e2;color:#991b1b} .badge.pend{background:#fef3c7;color:#92400e} .badge.blue{background:#dbeafe;color:#1e40af}
-header{display:flex;align-items:center;gap:6px;background:#0b1220;color:#fff;padding:6px 14px;height:52px;position:sticky;top:0;z-index:10}
-header .logo{font-weight:800;font-size:16px;margin-right:14px} header .logo span{color:#5eead4}
-header nav{display:flex;gap:2px;overflow-x:auto;flex:1}
-header nav button{background:transparent;color:#cbd5e1;white-space:nowrap} header nav button.on{background:#ffffff1a;color:#fff}
-main{padding:14px;max-width:1500px;margin:0 auto}
-.view{display:none} .view.on{display:block}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:500;background:#f1f3f6;color:var(--text-2)}
+.badge.ok{background:#ecfdf3;color:#067647} .badge.err{background:#fef3f2;color:#b42318} .badge.pend{background:#fffaeb;color:#b54708} .badge.blue{background:var(--brand-50);color:var(--brand-d)}
+/* оболочка */
+#app:not(.hidden){display:flex;height:100%}
+#side{width:236px;flex:none;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column}
+#side .brand{display:flex;align-items:center;gap:10px;padding:16px 16px 8px}
+#side .mark{width:32px;height:32px;border-radius:9px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800}
+#side svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#nav{flex:1;overflow:auto;padding:4px 10px}
+#nav .grp{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);padding:14px 10px 5px}
+#nav button{display:flex;align-items:center;gap:11px;width:100%;background:transparent;border:0;color:var(--text-2);padding:8px 10px;margin:1px 0;text-align:left;border-radius:9px}
+#nav button:hover{background:var(--hover);color:var(--text)} #nav button.on{background:var(--brand-50);color:var(--brand)}
+.side-foot{border-top:1px solid var(--line);padding:10px 12px;display:flex;align-items:center;gap:10px}
+.side-foot button{border:0;background:transparent;padding:7px;color:var(--muted)}
+#col{flex:1;min-width:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:12px 20px 0;height:58px;flex:none}
+header h1{font-size:20px;margin:0;white-space:nowrap}
+header .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+main{flex:1;overflow:auto;padding:12px 20px 24px}
+.view{display:none} .view.on{display:block;animation:viewIn .22s var(--ease)}
+@keyframes viewIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes popIn{from{opacity:0;transform:scale(.97) translateY(6px)}to{opacity:1;transform:none}}
 h2{margin:0 0 10px;font-size:18px}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
-.kpi .v{font-size:24px;font-weight:700} .kpi .l{font-size:12px;color:var(--muted)}
-.stores{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px}
-.st{position:relative} .st .nm{font-weight:700;font-size:15px} .st .big{font-size:26px;font-weight:800;margin:6px 0}
-.dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#9ca3af;margin-right:6px} .dot.on{background:#22c55e;box-shadow:0 0 0 3px #22c55e33}
-.bar{height:6px;border-radius:3px;background:#e5e7eb;overflow:hidden;margin-top:8px} .bar i{display:block;height:100%;background:var(--brand)}
-.modal{position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
-.modal .box{background:#fff;border-radius:14px;padding:18px;width:560px;max-width:100%;max-height:92vh;overflow:auto} .modal .box.wide{width:980px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi .v{font-size:22px;font-weight:650;letter-spacing:-.02em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .kpi .l{font-size:12.5px;color:var(--muted);font-weight:500}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:#9ca3af;margin-right:6px} .dot.on{background:#22c55e;box-shadow:0 0 0 3px #22c55e2e}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal .box{background:#fff;border-radius:16px;padding:20px;width:560px;max-width:100%;max-height:92vh;overflow:auto;box-shadow:var(--shadow-lg);animation:popIn .18s var(--ease)} .modal .box.wide{width:980px}
 .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 #toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:200}
-#toast div{background:#111827;color:#fff;padding:10px 14px;border-radius:10px;max-width:420px} #toast div.err{background:var(--red)} #toast div.ok{background:var(--green)}
+#toast div{background:#0b0f19;color:#fff;padding:11px 15px;border-radius:12px;max-width:420px;animation:popIn .18s var(--ease)} #toast div.err{background:var(--red)} #toast div.ok{background:var(--green)}
 .tbl{max-height:calc(100vh - 220px);overflow:auto}
-#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0b1220,#134e4a)}
-#login .box{background:#fff;border-radius:16px;padding:28px;width:340px}
-svg text{font-size:10px;fill:#6b7280}
+#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 600px at 20% 0%,#dbeafe 0%,transparent 60%),var(--bg)}
+#login .box{background:#fff;border-radius:18px;padding:30px;width:360px;border:1px solid var(--line);box-shadow:var(--shadow-lg)}
 code{background:#f3f4f6;padding:2px 6px;border-radius:5px;font-size:12px;word-break:break-all}
-@media(max-width:800px){.grid2,.grid3{grid-template-columns:1fr}}
+/* dashboard */
+.dtool{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.seg{display:inline-flex;background:#eef0f3;border-radius:10px;padding:3px}
+.seg button{border:0;background:transparent;padding:6px 12px;font-size:13px;border-radius:8px;color:var(--muted)}
+.seg button.on{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(16,24,40,.12);font-weight:600}
+.kpis.dk{grid-template-columns:repeat(8,minmax(0,1fr))} .kpi.dk2 .l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .dc .row{flex-wrap:wrap} .kpi.dk2{padding:13px 14px} .kpi.dk2 .v{font-size:20px}
+.ks{display:flex;gap:6px;align-items:center;font-size:12px;margin-top:3px;white-space:nowrap;overflow:hidden}
+.kc{font-weight:600;font-size:12px;padding:1px 6px;border-radius:6px} .kc.up{color:#067647;background:#ecfdf3} .kc.dn{color:#b42318;background:#fef3f2}
+.dgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.dc{display:flex;flex-direction:column;min-height:300px;max-height:360px;padding:14px 16px} .dc .body{flex:1;min-height:0;overflow:auto;margin-top:8px}
+.dl{display:flex;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line);font-size:13px}
+.dl .num{min-width:90px;text-align:right} .rk{width:20px;height:20px;border-radius:6px;background:#f1f3f6;display:grid;place-items:center;font-size:11px;color:var(--muted);flex:none}
+.ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .pad{padding:18px 4px}
+.hb{margin:8px 0} .hb .tr{height:8px;background:#f1f3f6;border-radius:4px;margin-top:4px} .hb .tr i{display:block;height:100%;background:var(--brand);border-radius:4px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:12px} .lg i{width:10px;height:10px;border-radius:3px;display:inline-block} .lg i.ln{height:0;border-top:2px dashed #94a3b8;width:16px;border-radius:0}
+svg.ch text{font-size:10.5px;fill:#8a94a6} svg.ch .hv:hover rect:first-child{fill:#f5f7fb}
+.al{display:flex;gap:10px;padding:9px 8px;border-radius:10px;cursor:pointer} .al:hover{background:#f8fafc}
+.ai{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+#bellBtn{position:relative;padding:6px 9px} #bellBtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;display:block}
+#bellN{position:absolute;top:-5px;right:-6px;background:var(--red);color:#fff;font-size:10.5px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;padding:0 4px;border:2px solid var(--bg)}
+#bellPanel{position:fixed;width:400px;max-width:calc(100vw - 24px);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);z-index:70;animation:popIn .16s var(--ease)}
+@media(max-width:1700px){.kpis.dk{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1000px){#side{width:64px} #nav .t,#nav .grp,#side .brand b,.side-foot .t{display:none} #nav button{justify-content:center} .dgrid{grid-template-columns:1fr} .dgrid .card{grid-column:auto!important} .grid2,.grid3{grid-template-columns:1fr}}
+@media(max-width:700px){.dgrid{display:flex;flex-direction:column} .kpis.dk{grid-template-columns:repeat(2,minmax(0,1fr))} main{padding:10px} header{padding:10px}}
 </style>
 </head>
 <body>
 <div id="login">
   <div class="box">
-    <div style="font-size:22px;font-weight:800">Центр <span style="color:var(--brand)">сети</span></div>
+    <div class="row" style="margin-bottom:6px"><span style="width:36px;height:36px;border-radius:10px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800">Ц</span><div style="font-size:20px;font-weight:700">Центр сети</div></div>
     <div class="muted">Кабинет владельца</div>
     <label>Пароль</label><input type="password" id="pw" autofocus>
     <button class="p" style="width:100%;margin-top:12px" onclick="doLogin()">Войти</button>
@@ -56,27 +95,23 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:5px;font-size:12px;word-br
 </div>
 
 <div id="app" class="hidden">
-<header>
-  <div class="logo">ЦЕНТР <span>сети</span></div>
+<aside id="side">
+  <div class="brand"><span class="mark">Ц</span><b>Центр сети</b></div>
   <nav id="nav">
-    <button data-v="dash">Обзор</button><button data-v="docs">Накладные</button><button data-v="stock">Остатки</button>
-    <button data-v="catalog">Каталог</button><button data-v="sales">Продажи</button><button data-v="stores">Магазины</button><button data-v="migrate">Переезд</button>
+    <div class="grp">Главное</div><button data-v="dash" title="Обзор сети"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="t">Обзор сети</span></button><button data-v="stores" title="Магазины"><svg viewBox="0 0 24 24"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg><span class="t">Магазины</span></button><button data-v="sales" title="Продажи"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span class="t">Продажи</span></button>
+    <div class="grp">Товары и склад</div><button data-v="catalog" title="Каталог"><svg viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><span class="t">Каталог</span></button><button data-v="stock" title="Остатки"><svg viewBox="0 0 24 24"><path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/><path d="M6 18h12"/><path d="M6 14h12"/></svg><span class="t">Остатки</span></button><button data-v="docs" title="Поставки и перемещения"><svg viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg><span class="t">Поставки и перемещения</span></button>
+    <div class="grp">Система</div><button data-v="migrate" title="Переезд данных"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4"/></svg><span class="t">Переезд данных</span></button>
   </nav>
-  <button class="ghost" style="color:#fff;border-color:#334155" onclick="logout()">Выход</button>
-</header>
+  <div class="side-foot"><span class="t grow muted" style="font-size:12px">Владелец</span><button onclick="logout()" title="Выйти"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button></div>
+</aside>
+<div id="col">
+<header><h1 id="pageTitle">Обзор сети</h1><div class="right">
+  <button id="bellBtn" title="Уведомления"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span id="bellN" class="hidden"></span></button>
+</div></header>
 <main>
   <div id="pwWarn"></div>
 
-  <section class="view" id="v-dash">
-    <div class="row wrap"><h2 class="grow" style="margin:0">Сеть сегодня</h2><input type="date" id="dDay" style="width:160px" onchange="loadDash()"><button onclick="loadDash()">⟳</button></div>
-    <div class="kpis" id="dKpis" style="margin-top:10px"></div>
-    <div class="stores" id="dStores"></div>
-    <div class="grid2" style="margin-top:12px">
-      <div class="card"><b>Выручка за 14 дней</b><div id="dTrend" style="margin-top:8px"></div></div>
-      <div class="card"><b>Топ-10 товаров сети</b><table><tbody id="dTop"></tbody></table></div>
-    </div>
-    <div class="card" style="margin-top:12px"><b class="amber">Расхождения при приёмке (14 дней)</b><table><tbody id="dDisc"></tbody></table></div>
-  </section>
+  <section class="view" id="v-dash"><div id="dashBox"></div></section>
 
   <section class="view" id="v-docs">
     <div class="card">
@@ -132,7 +167,7 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:5px;font-size:12px;word-br
     <div class="card">
       <div class="row" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Магазины</h2><button class="p" onclick="editStore()">+ Магазин</button></div>
       <table><thead><tr><th>Магазин</th><th>Адрес</th><th>Связь</th><th>Подключение кассы</th><th></th></tr></thead><tbody id="storesBody"></tbody></table>
-      <div class="card" style="margin-top:12px;background:#f0fdfa">
+      <div class="card" style="margin-top:12px;background:var(--brand-50);border-color:#dbeafe">
         <b>Как подключить кассу магазина</b>
         <ol style="margin:6px 0 0 18px;padding:0">
           <li>На кассе: <b>Настройки → Сеть магазинов</b>.</li>
@@ -144,8 +179,8 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:5px;font-size:12px;word-br
     </div>
   </section>
 </main>
-</div>
-<div id="mroot"></div><div id="toast"></div>
+</div></div>
+<div id="mroot"></div><div id="toast"></div><div id="bellPanel" class="hidden"></div>
 
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -177,29 +212,11 @@ async function boot(){
   STORES=await api('/api/stores'); show('dash');
 }
 $$('#nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
-function show(v){ $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v)); $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+const TITLES={dash:'Обзор сети',stores:'Магазины',sales:'Продажи',catalog:'Единый каталог',stock:'Остатки по магазинам',docs:'Поставки и перемещения',migrate:'Переезд данных'};
+function show(v){ $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v)); $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); $('#pageTitle').textContent=TITLES[v]||'';
   ({dash:loadDash,docs:loadDocs,stock:loadStock,catalog:loadCat,sales:initSales,stores:loadStores,migrate:loadMig})[v](); }
 
-// ---------------- dashboard
-async function loadDash(){
-  if(!$('#dDay').value) $('#dDay').value=today();
-  const r=await api('/api/dashboard?day='+$('#dDay').value);
-  const S=r.stores, tot=k=>S.reduce((a,s)=>a+(s[k]||0),0); const net=tot('net'), ch=tot('checks');
-  const K=(l,v,c='')=>`<div class="card kpi"><div class="l">${l}</div><div class="v ${c}">${v}</div></div>`;
-  $('#dKpis').innerHTML=K('Выручка сети',fmt(net))+K('Чеков',ch)+K('Средний чек',fmt(ch?net/ch:0))+K('Прибыль',fmt(tot('profit')),'green')+K('Наличные',fmt(tot('cash')))+K('Карта',fmt(tot('card')))+K('В насию',fmt(tot('debt')),'red')+K('Магазинов онлайн',S.filter(s=>s.online).length+' из '+S.length)+K('Накладных в пути',r.pending_docs,'amber');
-  const mx=Math.max(...S.map(s=>s.net),1);
-  $('#dStores').innerHTML=S.map(s=>`<div class="card st"><div class="row"><span class="dot ${s.online?'on':''}" title="${s.online?'на связи':'нет связи, последняя: '+(s.last_seen||'никогда')}"></span><span class="nm grow">${esc(s.name)}</span><span class="muted" style="font-size:12px">${s.last_seen?s.last_seen.slice(11,16):'—'}</span></div>
-    <div class="big">${fmt(s.net)}</div><div class="muted">${s.checks} чек. · ср. ${fmt(s.avg)} · прибыль <span class="green">${fmt(s.profit)}</span></div>
-    <div class="bar"><i style="width:${Math.max(2,s.net/mx*100)}%"></i></div></div>`).join('')||'<div class="card muted">Добавьте магазины во вкладке «Магазины»</div>';
-  // trend: stacked by day
-  const days=[...Array(14).keys()].map(i=>{ const d=new Date($('#dDay').value); d.setDate(d.getDate()-13+i); return d.toLocaleDateString('sv-SE'); });
-  const byDay=days.map(d=>r.trend.filter(x=>x.d===d).reduce((a,x)=>a+x.net,0)); const m2=Math.max(...byDay,1);
-  const W=560,H=150,bw=W/14;
-  $('#dTrend').innerHTML=`<svg viewBox="0 0 ${W} ${H+18}" width="100%">${byDay.map((v,i)=>`<rect x="${i*bw+4}" y="${H-v/m2*H}" width="${bw-8}" height="${v/m2*H}" rx="3" fill="${i===13?'#0f766e':'#99d5cf'}"><title>${days[i]}: ${fmt(v)}</title></rect><text x="${i*bw+bw/2}" y="${H+13}" text-anchor="middle">${days[i].slice(8)}</text>`).join('')}</svg>`;
-  $('#dTop').innerHTML=r.top.map((t,i)=>`<tr><td class="muted">${i+1}</td><td>${esc(t.name)}</td><td class="n">${fq(t.q)}</td><td class="n"><b>${fmt(t.t)}</b></td></tr>`).join('')||'<tr><td class="muted">Нет продаж</td></tr>';
-  $('#dDisc').innerHTML=r.discrepancies.map(d=>`<tr><td>${esc(d.number)}</td><td>${esc(d.to_name)}</td><td>${d.received_at}</td><td class="n">${d.short?`<span class="red">недостача ${fq(d.short)}</span>`:''} ${d.extra?`<span class="amber">излишек ${fq(d.extra)}</span>`:''}</td><td class="muted">${esc(d.note||'')}</td></tr>`).join('')||'<tr><td class="muted">Расхождений нет ✓</td></tr>';
-}
-
+// ---------------- dashboard: см. /static-less блок ниже (loadDash)
 // ---------------- stores
 let UPDV=null;
 async function loadStores(){
@@ -399,7 +416,9 @@ async function mgRun(apply){
 }
 
 setInterval(()=>{ if($('#v-dash').classList.contains('on')&&!$('#mroot .modal')) loadDash(); },60000);
-boot();
+</script>
+<script src="/hqdash.js"></script>
+<script>boot();
 </script>
 </body>
 </html>

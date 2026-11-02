@@ -224,8 +224,8 @@ def products():
     text = (request.args.get("q") or "").strip()
     where, args = ["p.active=1"], []
     if text:
-        where.append("(p.name LIKE ? OR p.barcode LIKE ? OR p.sku LIKE ?)")
-        args += [f"%{text}%"] * 3
+        where.append("(ulower(p.name) LIKE ? OR p.barcode LIKE ? OR ulower(p.sku) LIKE ?)")
+        args += [f"%{text.lower()}%"] * 3
     if request.args.get("low"):
         where.append("p.stock <= p.min_stock")
     if request.args.get("cat"):
@@ -1255,6 +1255,7 @@ def background_worker():
 
 import extras  # noqa: E402
 import reports2  # noqa: E402
+import dash  # noqa: E402
 import network  # noqa: E402
 import grocery  # noqa: E402
 import updater  # noqa: E402
@@ -1262,6 +1263,7 @@ import pricing  # noqa: E402
 extras.register(sys.modules[__name__])
 pricing.register(sys.modules[__name__])
 reports2.register(sys.modules[__name__])
+dash.register(sys.modules[__name__])
 updater.register(sys.modules[__name__])
 network.register(sys.modules[__name__])
 grocery.register(sys.modules[__name__])

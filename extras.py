@@ -273,8 +273,8 @@ def customers_list():
     where, args = ["1=1"], []
     if t:
         digits = "".join(c for c in t if c.isdigit())
-        conds = ["name LIKE ?", "card=?"]
-        args += [f"%{t}%", t]
+        conds = ["ulower(name) LIKE ?", "card=?"]
+        args += [f"%{t.lower()}%", t]
         if digits:
             conds.append("phone LIKE ?")
             args.append(f"%{digits}%")
