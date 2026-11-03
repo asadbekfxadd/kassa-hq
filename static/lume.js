@@ -339,10 +339,10 @@ function repProducts(r, box){
 function repMovement(r, box){
   const t=r.totals_cost;
   box.innerHTML=`<div class="kpis">${KPI('Остаток на начало',fmt(t.opening))}${KPI('Приход',fmt(t.in),'green')}${KPI('Расход',fmt(t.out),'red')}${KPI('Остаток на конец',fmt(t.closing))}</div>
-    <div class="muted" style="font-size:12px;margin:6px 0">Суммы — по текущей себестоимости. Приход = закупки + приёмки + возвраты покупателей + излишки ревизий. Расход = продажи + списания + отгрузки + недостачи.</div>
-    <div class="card"><div class="tbl-wrap" style="max-height:66vh"><table><thead><tr><th>Товар</th><th class="n">Начало</th><th class="n">Закупка</th><th class="n">Приёмка</th><th class="n">Возврат</th><th class="n">Излишки</th><th class="n">Продажа</th><th class="n">Списание</th><th class="n">Отгрузка</th><th class="n">Недостача</th><th class="n">Конец</th></tr></thead><tbody>
+    <div class="muted" style="font-size:12px;margin:6px 0">Суммы — по текущей себестоимости. Приход = закупки + приёмки + возвраты покупателей + излишки ревизий. Расход = продажи + списания + отгрузки + возвраты поставщику + недостачи.</div>
+    <div class="card"><div class="tbl-wrap" style="max-height:66vh"><table><thead><tr><th>Товар</th><th class="n">Начало</th><th class="n">Закупка</th><th class="n">Приёмка</th><th class="n">Возврат</th><th class="n">Излишки</th><th class="n">Продажа</th><th class="n">Списание</th><th class="n">Отгрузка</th><th class="n">Возврат пост.</th><th class="n">Недостача</th><th class="n">Конец</th></tr></thead><tbody>
     ${r.items.map(i=>{ const z=v=>v?fq(v):'<span class="muted">·</span>'; return `<tr><td>${esc(i.name)}</td><td class="n"><b>${fq(i.opening)}</b></td><td class="n green">${z(i.purchase)}</td><td class="n green">${z(i.receive)}</td><td class="n green">${z(i.refund)}</td><td class="n green">${z(i.inv_plus)}</td>
-      <td class="n red">${z(i.sale)}</td><td class="n red">${z(i.writeoff)}</td><td class="n red">${z(i.transfer_out)}</td><td class="n red">${z(i.inv_minus)}</td><td class="n"><b>${fq(i.closing)}</b></td></tr>`; }).join('')||'<tr><td class="muted" colspan="11">Нет движения</td></tr>'}
+      <td class="n red">${z(i.sale)}</td><td class="n red">${z(i.writeoff)}</td><td class="n red">${z(i.transfer_out)}</td><td class="n red">${z(i.supplier_return)}</td><td class="n red">${z(i.inv_minus)}</td><td class="n"><b>${fq(i.closing)}</b></td></tr>`; }).join('')||'<tr><td class="muted" colspan="11">Нет движения</td></tr>'}
     </tbody></table></div></div>`;
 }
 function repProfit(r, box){

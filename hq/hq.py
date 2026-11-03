@@ -65,6 +65,10 @@ CREATE TABLE IF NOT EXISTS doc_lines (
   id INTEGER PRIMARY KEY AUTOINCREMENT, doc_uid TEXT NOT NULL, product_uid TEXT NOT NULL,
   qty REAL NOT NULL DEFAULT 0, qty_fact REAL, cost REAL DEFAULT 0, price REAL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS ix_dl_doc ON doc_lines(doc_uid);
+CREATE TABLE IF NOT EXISTS price_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_uid TEXT NOT NULL, created_at TEXT, old_price REAL, new_price REAL,
+  old_cost REAL, new_cost REAL, source TEXT, user_name TEXT);
+CREATE INDEX IF NOT EXISTS ix_ph_uid ON price_history(product_uid);
 CREATE TABLE IF NOT EXISTS store_plans (
   store_id INTEGER NOT NULL, month TEXT NOT NULL, amount REAL NOT NULL DEFAULT 0, updated_at TEXT, PRIMARY KEY (store_id, month));
 """
@@ -166,7 +170,7 @@ def init():
                      ("shelf_days", "INTEGER DEFAULT 0"), ("wholesale_price", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"),
                      ("stores.phone", "TEXT"), ("stores.manager_id", "INTEGER"), ("stores.registers", "INTEGER DEFAULT 1"),
                      ("stores.area", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"), ("stores.opened_on", "TEXT"),
-                     ("stores.city", "TEXT")):
+                     ("stores.city", "TEXT"), ("brand", "TEXT")):
         tbl, col = col.split(".") if "." in col else ("products", col)
         try:
             c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {typ}")
@@ -260,7 +264,7 @@ def store_new_token(sid):
 # ================================================================ catalog
 PFIELDS = ["name", "barcode", "sku", "category", "unit_name", "units_code", "spic", "package_code", "owner_type",
            "vat_percent", "cost_price", "price", "min_stock", "active", "requires_marking", "restrict_kind", "shelf_days",
-           "wholesale_price"]
+           "wholesale_price", "brand"]
 
 
 def clean_p(d):
@@ -297,6 +301,38 @@ def products():
     return jsonify(rows)
 
 
+def log_price(c, uid, old, new, source):
+    """История цен Центра: пишем, если изменилась цена или себестоимость."""
+    op, np_ = old.get("price"), new.get("price", old.get("price"))
+    oc, nc = old.get("cost_price"), new.get("cost_price", old.get("cost_price"))
+    if (op is None and np_ is None) or (abs((op or 0) - (np_ or 0)) < 0.001 and abs((oc or 0) - (nc or 0)) < 0.001 and old):
+        return
+    c.execute("""INSERT INTO price_history(product_uid,created_at,old_price,new_price,old_cost,new_cost,source,user_name)
+                 VALUES(?,?,?,?,?,?,?,?)""", (uid, now(), op, np_, oc, nc, source, (rbac.user() or {}).get("name", "")))
+
+
+@app.get("/api/products/<uid>/prices")
+@owner
+def product_prices(uid):
+    rows = q("SELECT * FROM price_history WHERE product_uid=? ORDER BY id DESC LIMIT 200", (uid,))
+    if not rbac.can("finance"):
+        for r in rows:
+            r["old_cost"] = r["new_cost"] = None
+    return jsonify(rows)
+
+
+@app.get("/api/products/gen_barcode")
+@owner
+def gen_barcode():
+    """Внутренний EAN-13 с префиксом 200 (зона внутренней нумерации GS1) и контрольной цифрой."""
+    while True:
+        base = "200" + "".join(str(secrets.randbelow(10)) for _ in range(9))
+        sm = sum(int(ch) * (3 if i % 2 else 1) for i, ch in enumerate(base))
+        code = base + str((10 - sm % 10) % 10)
+        if not q("SELECT 1 FROM products WHERE barcode=?", (code,), one=True):
+            return jsonify(barcode=code)
+
+
 @app.post("/api/products")
 @owner
 def product_save():
@@ -314,8 +350,11 @@ def product_save():
     p["updated_at"] = now()
     if d.get("uid"):
         old = dict(c.execute("SELECT price, cost_price FROM products WHERE uid=?", (d["uid"],)).fetchone() or {})
+        if not rbac.can("finance"):
+            p.pop("cost_price", None)
         c.execute(f"UPDATE products SET {','.join(k + '=?' for k in p)} WHERE uid=?", list(p.values()) + [d["uid"]])
         uid = d["uid"]
+        log_price(c, uid, old, p, "Карточка товара")
         ch = [f"{k}: {old.get(k):g} → {p[k]:g}" for k in ("price", "cost_price") if k in p and old.get(k) is not None and abs((old.get(k) or 0) - (p[k] or 0)) > 0.001]
         rbac.audit("Изменён товар", p["name"] + (" · " + ", ".join(ch) if ch else ""), c=c)
     else:
@@ -323,6 +362,7 @@ def product_save():
         p["uid"] = uid
         p["created_by"] = (rbac.user() or {}).get("name") or "Центр"
         c.execute(f"INSERT INTO products({','.join(p)}) VALUES({','.join('?' * len(p))})", list(p.values()))
+        log_price(c, uid, {}, p, "Новый товар")
         rbac.audit("Создан товар", p["name"], c=c)
     c.commit()
     c.close()
@@ -404,9 +444,10 @@ def product_import():
         rec.pop("qty", None)
         p = clean_p(rec)
         p["updated_at"] = now()
-        ex = c.execute("SELECT uid FROM products WHERE barcode=? AND active=1", (p.get("barcode"),)).fetchone() if p.get("barcode") else None
+        ex = c.execute("SELECT uid, price, cost_price FROM products WHERE barcode=? AND active=1", (p.get("barcode"),)).fetchone() if p.get("barcode") else None
         if ex:
             c.execute(f"UPDATE products SET {','.join(k + '=?' for k in p)} WHERE uid=?", list(p.values()) + [ex["uid"]])
+            log_price(c, ex["uid"], dict(ex), p, "Импорт")
             up += 1
         elif p.get("name"):
             p["uid"] = uuid.uuid4().hex
@@ -865,6 +906,8 @@ import hqdash  # noqa: E402
 hqdash.register(sys.modules[__name__])
 import stores2  # noqa: E402
 stores2.register(sys.modules[__name__])
+import stockhq  # noqa: E402
+stockhq.register(sys.modules[__name__])
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

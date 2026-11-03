@@ -232,7 +232,7 @@ def rep_products():
 
 # ================================================================ оборотная ведомость
 IN_TYPES = ("purchase", "receive", "refund")
-OUT_TYPES = ("sale", "writeoff", "transfer_out")
+OUT_TYPES = ("sale", "writeoff", "transfer_out", "supplier_return")
 
 
 def movement_report(f, t):
@@ -261,7 +261,7 @@ def movement_report(f, t):
     for p in prods.values():
         p["closing"] = round(p["stock"] - after.get(p["id"], 0), 3)
         inc = p["purchase"] + p["receive"] + p["refund"] + p["inv_plus"]
-        outq = p["sale"] + p["writeoff"] + p["transfer_out"] + p["inv_minus"]
+        outq = p["sale"] + p["writeoff"] + p["transfer_out"] + p["supplier_return"] + p["inv_minus"]
         p["opening"] = round(p["closing"] - inc + outq, 3)
         p["in"], p["out"] = round(inc, 3), round(outq, 3)
         if p["opening"] or inc or outq or p["closing"]:
@@ -421,10 +421,10 @@ def rep_export(kind):
     elif kind == "movement":
         r = movement_report(f, t)
         _sheet(ws, "Оборотная ведомость", ["Товар", "Штрихкод", "Остаток на начало", "Приход", "Приёмка", "Возвраты",
-                                            "Излишки", "Продажи", "Списания", "Отгрузки", "Недостачи", "Остаток на конец",
+                                            "Излишки", "Продажи", "Списания", "Отгрузки", "Возврат поставщику", "Недостачи", "Остаток на конец",
                                             "Себестоимость"],
                [[x["name"], x["barcode"] or "", x["opening"], x["purchase"], x["receive"], x["refund"], x["inv_plus"], x["sale"],
-                 x["writeoff"], x["transfer_out"], x["inv_minus"], x["closing"], x["cost_price"]] for x in r["items"]], {1: 40, 2: 16})
+                 x["writeoff"], x["transfer_out"], x["supplier_return"], x["inv_minus"], x["closing"], x["cost_price"]] for x in r["items"]], {1: 40, 2: 16})
     elif kind == "profit":
         r = profit_report(f, t)
         rows = [["Выручка", r["revenue"]], ["Себестоимость проданного", -r["cost"]], ["Валовая прибыль", r["gross"]]]

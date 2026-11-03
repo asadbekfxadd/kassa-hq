@@ -290,6 +290,7 @@ MIGRATIONS = [
     ("purchases", "due_date", "TEXT"),
     ("doc_lines", "expiry", "TEXT"),
     ("products", "wholesale_price", "REAL NOT NULL DEFAULT 0"),
+    ("products", "brand", "TEXT"),
     ("customers", "price_type", "TEXT NOT NULL DEFAULT 'retail'"),   # retail | wholesale
     ("sales", "qr", "REAL NOT NULL DEFAULT 0"),
     ("sale_items", "promo", "TEXT"),
@@ -302,6 +303,20 @@ UPDATE sales SET uid=lower(hex(randomblob(16))) WHERE uid IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_products_uid ON products(uid);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_sales_uid ON sales(uid);
 CREATE INDEX IF NOT EXISTS ix_sales_synced ON sales(synced);
+CREATE TABLE IF NOT EXISTS price_history (      -- любая смена цены/себестоимости: карточка, переоценка, уценка, Центр
+    id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER NOT NULL, created_at TEXT NOT NULL,
+    old_price REAL, new_price REAL, old_cost REAL, new_cost REAL, source TEXT, user_id INTEGER);
+CREATE INDEX IF NOT EXISTS ix_ph_product ON price_history(product_id, id);
+CREATE TRIGGER IF NOT EXISTS tr_products_price AFTER UPDATE OF price, cost_price ON products
+WHEN abs(COALESCE(OLD.price,0)-COALESCE(NEW.price,0))>0.001 OR abs(COALESCE(OLD.cost_price,0)-COALESCE(NEW.cost_price,0))>0.001
+BEGIN INSERT INTO price_history(product_id,created_at,old_price,new_price,old_cost,new_cost,source,user_id)
+      VALUES(NEW.id, datetime('now','localtime'), OLD.price, NEW.price, OLD.cost_price, NEW.cost_price, ctx_src(), ctx_user()); END;
+CREATE TABLE IF NOT EXISTS supplier_returns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, supplier_id INTEGER REFERENCES suppliers(id),
+    user_id INTEGER, reason TEXT, note TEXT, lines INTEGER DEFAULT 0, qty REAL DEFAULT 0, total REAL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS supplier_return_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, return_id INTEGER NOT NULL REFERENCES supplier_returns(id),
+    product_id INTEGER NOT NULL, name TEXT, qty REAL NOT NULL, cost REAL NOT NULL DEFAULT 0);
 CREATE TRIGGER IF NOT EXISTS tr_products_uid AFTER INSERT ON products WHEN NEW.uid IS NULL
 BEGIN UPDATE products SET uid=lower(hex(randomblob(16))), stock_at=datetime('now','localtime') WHERE id=NEW.id; END;
 CREATE TRIGGER IF NOT EXISTS tr_products_stock AFTER UPDATE OF stock ON products
@@ -371,12 +386,39 @@ def now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+PRICE_SOURCES = [("/api/revalue", "Переоценка"), ("/api/expiry/markdown", "Уценка"), ("/api/purchases", "Приход"),
+                 ("/api/products/import", "Импорт"), ("/api/products", "Карточка товара"), ("/api/docs", "Приёмка")]
+
+
+def _ctx_user():
+    try:
+        from flask import has_request_context, session
+        return session.get("uid") if has_request_context() else None
+    except Exception:
+        return None
+
+
+def _ctx_src():
+    try:
+        from flask import has_request_context, request, g
+        if not has_request_context():
+            return "Центр сети"
+        if g.get("price_src"):
+            return g.price_src
+        return next((n for p, n in PRICE_SOURCES if request.path.startswith(p)), "Касса")
+    except Exception:
+        return "Касса"
+
+
 def connect():
     os.makedirs(DATA_DIR, exist_ok=True)
     con = sqlite3.connect(DB_PATH, timeout=15)
     con.row_factory = sqlite3.Row
     # LIKE в SQLite не различает регистр только для латиницы — для кириллицы ищем через ulower()
     con.create_function("ulower", 1, lambda v: v.lower() if isinstance(v, str) else v, deterministic=True)
+    # кто и откуда меняет цену — для триггера истории цен
+    con.create_function("ctx_user", 0, _ctx_user)
+    con.create_function("ctx_src", 0, _ctx_src)
     con.execute("PRAGMA foreign_keys=ON")
     con.execute("PRAGMA journal_mode=WAL")
     return con

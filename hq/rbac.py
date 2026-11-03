@@ -55,7 +55,7 @@ RULES = [
     ("GET", r"^/api/audit$", "audit"),
     ("GET", r"^/api/products", "catalog.view"),
     ("*", r"^/api/products", "catalog.edit"),
-    ("GET", r"^/api/stock$", "stock"),
+    ("GET", r"^/api/stock", "stock"),
     ("GET", r"^/api/docs", "docs.view"),
     ("*", r"^/api/docs", "docs.create"),
     ("GET", r"^/api/sales_report$", "sales"),

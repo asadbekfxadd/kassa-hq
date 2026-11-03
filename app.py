@@ -266,7 +266,7 @@ def product_by_barcode(code):
 
 PRODUCT_FIELDS = ["name", "barcode", "sku", "category_id", "unit_name", "units_code", "spic", "package_code",
                   "owner_type", "vat_percent", "cost_price", "price", "min_stock", "requires_marking", "restrict_kind",
-                  "shelf_days", "quick", "supplier_id", "wholesale_price"]
+                  "shelf_days", "quick", "supplier_id", "wholesale_price", "brand"]
 
 
 def _clean_product(d):
@@ -1256,6 +1256,7 @@ def background_worker():
 import extras  # noqa: E402
 import reports2  # noqa: E402
 import dash  # noqa: E402
+import stock3  # noqa: E402
 import network  # noqa: E402
 import grocery  # noqa: E402
 import updater  # noqa: E402
@@ -1264,6 +1265,7 @@ extras.register(sys.modules[__name__])
 pricing.register(sys.modules[__name__])
 reports2.register(sys.modules[__name__])
 dash.register(sys.modules[__name__])
+stock3.register(sys.modules[__name__])
 updater.register(sys.modules[__name__])
 network.register(sys.modules[__name__])
 grocery.register(sys.modules[__name__])

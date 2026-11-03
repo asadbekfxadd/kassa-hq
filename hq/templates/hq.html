@@ -123,12 +123,22 @@ svg.ch text{font-size:10.5px;fill:#8a94a6} svg.ch .hv:hover rect:first-child{fil
   </section>
 
   <section class="view" id="v-stock">
-    <div class="card">
+    <div class="dtool"><div class="seg" id="skTabs"><button data-t="status" class="on">Статусы остатков</button><button data-t="matrix">Матрица по магазинам</button></div></div>
+    <div id="skStatus">
+      <div class="row wrap" id="skChips" style="gap:6px;margin-bottom:10px"></div>
+      <div class="card">
+        <div class="row wrap" style="margin-bottom:10px;gap:8px"><input id="kQ" placeholder="Товар, штрихкод, артикул" style="width:240px"><select id="kS" style="width:180px"></select>
+          <select id="kC" style="width:170px"></select><select id="kB" style="width:170px"></select><span class="grow muted" id="kInfo"></span><button onclick="stockXlsx()">⬇ Excel</button></div>
+        <div class="tbl"><table><thead><tr><th>Товар</th><th>Артикул / штрихкод</th><th>Магазин</th><th class="n">Остаток</th><th class="n">Продажи 7 дн.</th><th class="n">Продажи 30 дн.</th><th class="n">Хватит, дней</th><th>Статус</th><th class="n">По закупке</th></tr></thead><tbody id="kBody"></tbody></table></div>
+        <p class="muted" style="margin-bottom:0;font-size:12.5px"><b>Зона риска</b> — закончится за 3 дня при текущих продажах. <b>Избыток</b> — запаса больше чем на 60 дней. <b>Без продаж</b> — лежит, но не продавался 30 дней: кандидат на перемещение туда, где продаётся.</p>
+      </div>
+    </div>
+    <div id="skMatrix" class="hidden"><div class="card">
       <div class="row wrap" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Остатки по магазинам</h2>
         <input id="sQ" placeholder="Поиск" style="width:240px"><label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="sLow" style="width:auto"> ниже минимума</label></div>
       <div class="tbl"><table><thead id="stHead"></thead><tbody id="stBody"></tbody></table></div>
-      <p class="muted" style="margin-bottom:0">Ячейка красная — остаток ниже минимума. Подсказка: перемещайте из магазина, где товар лежит без продаж, туда, где его не хватает.</p>
-    </div>
+      <p class="muted" style="margin-bottom:0">Ячейка красная — остаток ниже минимума.</p>
+    </div></div>
   </section>
 
   <section class="view" id="v-catalog">
@@ -255,7 +265,9 @@ function editProd(uid){
   const p=CAT.find(x=>x.uid===uid)||{vat_percent:12,unit_name:'шт'};
   const f=(id,l,v,t='text')=>`<div><label>${l}</label><input id="${id}" type="${t}" value="${esc(v??'')}" step="any"></div>`;
   const m=modal(`<h3>${p.uid?'Товар':'Новый товар'}</h3>${f('pN','Наименование',p.name)}
-    <div class="grid3">${f('pB','Штрихкод',p.barcode)}${f('pS','Артикул',p.sku)}${f('pC','Категория',p.category)}</div>
+    <div class="grid3"><div><label>Штрихкод</label><div class="row" style="gap:6px"><input id="pB" value="${esc(p.barcode??'')}"><button id="pGen" title="Внутренний EAN-13 с префиксом 200">Авто</button></div></div>${f('pS','Артикул',p.sku)}${f('pC','Категория',p.category)}</div>
+    <div class="grid3"><div><label>Бренд / производитель</label><input id="pBr" list="brL" value="${esc(p.brand??'')}"><datalist id="brL">${[...new Set(CAT.map(x=>x.brand).filter(Boolean))].map(b=>`<option value="${esc(b)}">`).join('')}</datalist></div><div></div>
+      <div>${p.uid?'<label>&nbsp;</label><button id="pPH" style="width:100%">📈 История цен</button>':''}</div></div>
     <div class="grid3">${f('pCo','Себестоимость',p.cost_price,'number')}${f('pP','Цена продажи',p.price,'number')}${f('pM','Мин. остаток',p.min_stock,'number')}</div>
     <div class="grid3">${f('pI','ИКПУ',p.spic)}${f('pPk','Код упаковки',p.package_code)}${f('pU','Код ед.',p.units_code,'number')}</div>
     <div class="grid3">${f('pUn','Ед. изм.',p.unit_name)}${f('pV','НДС %',p.vat_percent,'number')}${f('pSh','Срок годности, дней',p.shelf_days,'number')}</div>
@@ -264,8 +276,10 @@ function editProd(uid){
       <div><label>Ограничение</label><select id="pRs"><option value="0">Нет</option><option value="1" ${p.restrict_kind==1?'selected':''}>18+</option><option value="2" ${p.restrict_kind==2?'selected':''}>Алкоголь</option></select></div><div></div></div>
     <div class="actions">${p.uid?'<button class="r" id="pDel" style="margin-right:auto">Удалить</button>':''}<button onclick="closeM()">Отмена</button><button class="p" id="pOk">Сохранить</button></div>`,'wide');
   const g=id=>m.querySelector(id).value;
-  m.querySelector('#pOk').onclick=async()=>{ try{ await api('/api/products',{method:'POST',body:{uid:p.uid,name:g('#pN'),barcode:g('#pB'),sku:g('#pS'),category:g('#pC'),cost_price:g('#pCo'),price:g('#pP'),min_stock:g('#pM'),spic:g('#pI'),package_code:g('#pPk'),units_code:g('#pU'),unit_name:g('#pUn'),vat_percent:g('#pV'),shelf_days:g('#pSh'),wholesale_price:g('#pWh'),requires_marking:g('#pMk'),restrict_kind:g('#pRs')}});
+  m.querySelector('#pOk').onclick=async()=>{ try{ await api('/api/products',{method:'POST',body:{uid:p.uid,name:g('#pN'),barcode:g('#pB'),sku:g('#pS'),category:g('#pC'),cost_price:g('#pCo'),price:g('#pP'),min_stock:g('#pM'),spic:g('#pI'),package_code:g('#pPk'),units_code:g('#pU'),unit_name:g('#pUn'),vat_percent:g('#pV'),shelf_days:g('#pSh'),wholesale_price:g('#pWh'),requires_marking:g('#pMk'),restrict_kind:g('#pRs'),brand:g('#pBr')}});
     m.remove(); loadCat(); toast('Сохранено — кассы получат изменения в течение минуты','ok'); }catch(e){ toast(e.message,'err'); } };
+  m.querySelector('#pGen').onclick=async()=>{ m.querySelector('#pB').value=(await api('/api/products/gen_barcode')).barcode; };
+  m.querySelector('#pPH')?.addEventListener('click',()=>priceHistory(p.uid,p.name));
   m.querySelector('#pDel')?.addEventListener('click',async()=>{ if(!confirm('Удалить из каталога всех магазинов?')) return; await api('/api/products/'+p.uid,{method:'DELETE'}); m.remove(); loadCat(); });
 }
 $('#impF').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const fd=new FormData(); fd.append('file',f);

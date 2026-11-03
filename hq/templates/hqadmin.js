@@ -40,7 +40,7 @@ show = function(v){
   if(NAV_PERM[v]&&!can(NAV_PERM[v])) return toast('Нет доступа к разделу','err');
   $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v)); $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   $('#pageTitle').textContent=TITLES[v]||'';
-  ({dash:loadDash,docs:loadDocs,stock:loadStock,catalog:loadCat,sales:initSales,stores:loadStores,migrate:loadMig,users:loadUsers,audit:loadAudit})[v]?.();
+  ({dash:loadDash,docs:loadDocs,stock:loadStockView,catalog:loadCat,sales:initSales,stores:loadStores,migrate:loadMig,users:loadUsers,audit:loadAudit})[v]?.();
 };
 const planColor=p=>p==null?'#cbd5e1':p>=100?'var(--green)':p<70?'var(--amber)':'var(--brand)';
 
@@ -190,4 +190,38 @@ async function loadAudit(){
   if(!$('#auSt').options.length) $('#auSt').innerHTML='<option value="">Все магазины и Центр</option>'+STORES.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
   const rows=await api('/api/audit'+($('#auSt').value?'?store='+$('#auSt').value:'')); const SN=Object.fromEntries(STORES.map(s=>[s.id,s.name]));
   $('#auBody').innerHTML=rows.map(r=>`<tr><td class="muted" style="white-space:nowrap">${dt(r.created_at)}</td><td>${esc(r.user_name||'')}</td><td><b>${esc(r.action)}</b></td><td style="font-size:13px">${esc(r.details||'')}</td><td>${esc(SN[r.store_id]||'')}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Записей нет</td></tr>';
+}
+
+
+// ---------------------------------------------------------------- этап 3: статусы остатков, история цен
+const SKC={out:['#b42318','#fef3f2'],low:['#b54708','#fffaeb'],risk:['#c4320a','#fff6ed'],nosale:['#475467','#f2f4f7'],over:['#6941c6','#f4f3ff'],in:['#067647','#ecfdf3']};
+let SK_TAB='status', SK_ST='', SK_T=null;
+$$('#skTabs button').forEach(b=>b.onclick=()=>{ SK_TAB=b.dataset.t; $$('#skTabs button').forEach(x=>x.classList.toggle('on',x===b)); loadStockView(); });
+function loadStockView(){ $('#skStatus').classList.toggle('hidden',SK_TAB!=='status'); $('#skMatrix').classList.toggle('hidden',SK_TAB!=='matrix'); return SK_TAB==='status'?loadStockStatus():loadStock(); }
+const skQS=()=>new URLSearchParams({q:$('#kQ').value.trim(),store:$('#kS').value||'',category:$('#kC').value||'',brand:$('#kB').value||'',status:SK_ST});
+async function loadStockStatus(){
+  const r=await api('/api/stock/status?'+skQS());
+  const keep=(sel,arr,label)=>{ const v=sel.value; sel.innerHTML=`<option value="">${label}</option>`+arr.map(x=>typeof x==='object'?`<option value="${x.id}">${esc(x.name)}</option>`:`<option>${esc(x)}</option>`).join(''); sel.value=v; };
+  if(!$('#kS').dataset.f){ keep($('#kS'),r.stores,'Все магазины'); $('#kS').dataset.f=1; } keep($('#kC'),r.categories,'Все категории'); keep($('#kB'),r.brands,'Все бренды');
+  $('#skChips').innerHTML=`<button class="${SK_ST?'ghost':'p'}" data-s="">Все <b style="margin-left:4px">${Object.values(r.counts).reduce((a,b)=>a+b,0)}</b></button>`+Object.entries(r.titles).map(([k,t])=>
+    `<button class="${SK_ST===k?'p':'ghost'}" data-s="${k}">${t} <b style="margin-left:4px;color:${SK_ST===k?'#fff':SKC[k][0]}">${r.counts[k]}</b></button>`).join('');
+  $$('#skChips [data-s]').forEach(b=>b.onclick=()=>{ SK_ST=b.dataset.s; loadStockStatus(); });
+  $('#kInfo').textContent=`Строк: ${r.total}${r.total>r.items.length?' (показаны первые '+r.items.length+')':''}`;
+  $('#kBody').innerHTML=r.items.map(i=>`<tr><td><b>${esc(i.name)}</b><div class="muted" style="font-size:11.5px">${esc([i.brand,i.category].filter(Boolean).join(' · '))}</div></td>
+    <td class="muted" style="font-size:12.5px">${esc(i.sku||'')}${i.sku&&i.barcode?'<br>':''}${esc(i.barcode||'')}</td><td>${esc(i.store)}</td>
+    <td class="n"><b class="${i.stock<=0?'red':''}">${fq(i.stock)}</b> <span class="muted">${esc(i.unit||'')}</span></td><td class="n">${fq(i.sold7)}</td><td class="n">${fq(i.sold30)}</td>
+    <td class="n">${i.cover_days==null?'—':i.cover_days}</td><td><span class="badge" style="background:${SKC[i.status][1]};color:${SKC[i.status][0]}">${r.titles[i.status]}</span></td>
+    <td class="n">${i.value==null?'—':fmt(i.value)}</td></tr>`).join('')||'<tr><td colspan="9" class="muted">Нет данных — подключите кассы</td></tr>';
+}
+['#kS','#kC','#kB'].forEach(s=>$(s).onchange=loadStockStatus);
+$('#kQ').oninput=()=>{ clearTimeout(SK_T); SK_T=setTimeout(loadStockStatus,250); };
+function stockXlsx(){ location.href='/api/stock/status.xlsx?'+skQS(); }
+async function priceHistory(uid,name){
+  const rows=await api(`/api/products/${uid}/prices`);
+  modal(`<h3>История цен: ${esc(name)}</h3><div style="max-height:60vh;overflow:auto"><table><thead><tr><th>Когда</th><th class="n">Цена</th><th class="n">Закупка</th><th>Источник</th><th>Кто</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td class="muted" style="white-space:nowrap">${dt(r.created_at)}</td>
+      <td class="n">${r.old_price!=null&&Math.abs(r.old_price-r.new_price)>0.001?`<span class="muted">${fmt(r.old_price)} →</span> <b>${fmt(r.new_price)}</b> <span class="${r.new_price>r.old_price?'red':'green'}" style="font-size:12px">${r.new_price>r.old_price?'+':''}${fmt(r.new_price-r.old_price)}</span>`:fmt(r.new_price)}</td>
+      <td class="n">${r.new_cost==null?'—':r.old_cost!=null&&Math.abs(r.old_cost-r.new_cost)>0.001?`<span class="muted">${fmt(r.old_cost)} →</span> <b>${fmt(r.new_cost)}</b>`:fmt(r.new_cost)}</td>
+      <td>${esc(r.source||'')}</td><td>${esc(r.user_name||'')}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Изменений не было</td></tr>'}</tbody></table></div>
+    <div class="actions"><button class="p" onclick="closeM()">Закрыть</button></div>`,'wide');
 }

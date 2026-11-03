@@ -147,7 +147,7 @@ function paySupplier(id,name,bal){
   m.querySelector('#psOk').onclick=async()=>{ try{ const r=await api(`/api/suppliers/${id}/pay`,{method:'POST',body:{amount:m.querySelector('#psA').value,method:m.querySelector('#psM').value,note:m.querySelector('#psN').value}});
     closeModal(m); toast('Оплачено. Остаток долга '+fmt(r.balance),'ok'); loadSuppliers(); }catch(e){ toast(e.message,'err'); } };
 }
-const SOP={purchase:'Приход товара',payment:'Оплата',correction:'Корректировка'};
+const SOP={purchase:'Приход товара',payment:'Оплата',correction:'Корректировка',return:'Возврат товара'};
 async function showSupplier(id){
   const s=await api('/api/suppliers/'+id);
   const m=modal(`<div class="row"><h3 class="grow" style="margin:0">${esc(s.name)}</h3><button class="ghost" id="ssE">Изменить</button></div>
