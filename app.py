@@ -163,7 +163,7 @@ def save_settings():
 @app.get("/api/users")
 @admin_required
 def users_list():
-    return jsonify(q("SELECT id,name,role,active FROM users ORDER BY id"))
+    return jsonify(q("SELECT id,name,role,active,hq FROM users ORDER BY id"))
 
 
 @app.post("/api/users")
@@ -174,6 +174,9 @@ def users_save():
     if not name:
         return err("Укажите имя")
     con = db.connect()
+    if d.get("id") and con.execute("SELECT hq FROM users WHERE id=?", (d["id"],)).fetchone()["hq"]:
+        con.close()
+        return err("Этим сотрудником управляет Центр сети — измените его там (Персонал)")
     try:
         if d.get("id"):
             if pin:
@@ -729,7 +732,7 @@ def sale_create():
     manual_disc = money(d.get("discount")) + sum(l["discount"] for l in lines)
     # контроль скидок кассира
     limit = num(s.get("cashier_max_discount"), 100)
-    pers = cust["discount_pct"] if cust else 0
+    pers = max(cust["discount_pct"] or 0, cust["level_discount"] or 0) if cust else 0
     if me["role"] != "admin" and subtotal and manual_disc / subtotal * 100 > max(limit, pers) + 0.01:
         if not extras.is_admin_pin(d.get("approve_pin")):
             con.close()
@@ -796,7 +799,7 @@ def sale_create():
         con.close()
         return err("Получено меньше суммы к оплате")
     change = round(given - cash, 2)
-    bonus_pct = num(s.get("bonus_pct"), 0)
+    bonus_pct = max(num(s.get("bonus_pct"), 0), (cust["level_cashback"] or 0) if cust else 0)   # уровень лояльности сети
     bonus_earned = round((total - debt) * bonus_pct / 100) if cust and bonus_pct > 0 else 0
 
     t = db.now()

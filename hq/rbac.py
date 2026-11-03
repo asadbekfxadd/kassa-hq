@@ -29,18 +29,22 @@ PERMS = {
     "plans.edit": "Планы продаж", "users": "Пользователи и роли", "catalog.view": "Каталог: просмотр",
     "catalog.edit": "Каталог: изменение цен и товаров", "stock": "Остатки", "docs.view": "Поставки и перемещения: просмотр",
     "docs.create": "Поставки и перемещения: создание", "sales": "Продажи и отчёты", "finance": "Прибыль, себестоимость, рентабельность",
-    "docs.approve": "Перемещения: согласование и закрытие", "expenses": "Расходы: внесение и удаление", "migrate": "Переезд данных", "audit": "Журнал действий",
+    "docs.approve": "Перемещения: согласование и закрытие", "expenses": "Расходы: внесение и удаление",
+    "staff": "Персонал: просмотр и KPI", "staff.edit": "Персонал: приём, изменение, ПИН кассы, оклады",
+    "crm": "Клиенты: база и аналитика", "crm.edit": "Клиенты: изменение контактов", "loyalty": "Уровни лояльности сети", "migrate": "Переезд данных", "audit": "Журнал действий",
 }
 _ALL = set(PERMS)
 ROLE_PERMS = {
     "superadmin": _ALL,
     "owner": _ALL,
     "director": _ALL - {"users", "migrate"},
-    "regional": {"dash", "stores.view", "plans.edit", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance", "expenses"},
-    "store_manager": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance", "expenses"},
+    "regional": {"dash", "stores.view", "plans.edit", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance", "expenses",
+                 "staff", "staff.edit", "crm", "crm.edit"},
+    "store_manager": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance", "expenses",
+                      "staff", "staff.edit", "crm", "crm.edit"},
     "warehouse": {"catalog.view", "stock", "docs.view", "docs.create"},
     "cashier": {"dash", "sales"},
-    "analyst": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "sales", "finance", "audit"},
+    "analyst": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "sales", "finance", "audit", "staff", "crm"},
 }
 ALL_STORES = {"superadmin", "owner", "director", "analyst"}   # видят всю сеть без привязки
 
@@ -62,6 +66,11 @@ RULES = [
     ("*", r"^/api/docs", "docs.create"),
     ("GET", r"^/api/sales_report$", "sales"),
     ("GET", r"^/api/an/", "sales"),
+    ("GET", r"^/api/staff", "staff"),
+    ("*", r"^/api/staff", "staff.edit"),
+    ("POST", r"^/api/crm/levels", "loyalty"),
+    ("GET", r"^/api/crm", "crm"),
+    ("*", r"^/api/crm", "crm.edit"),
     ("POST", r"^/api/fin/expenses", "expenses"),
     ("DELETE", r"^/api/fin/expenses", "expenses"),
     ("GET", r"^/api/fin/", "finance"),

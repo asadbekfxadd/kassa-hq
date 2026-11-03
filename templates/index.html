@@ -1205,8 +1205,8 @@ async function loadSettings(){
   const s=await api('/api/settings');
   $$('[data-s]').forEach(el=>{ el.value = s[el.dataset.s] ?? ''; });
   const users=await api('/api/users');
-  $('#usersBody').innerHTML=users.map(u=>`<tr><td>${esc(u.name)}</td><td>${u.role==='admin'?'Администратор':'Кассир'}</td><td>${u.active?'<span class="green">активен</span>':'<span class="muted">отключён</span>'}</td>
-    <td><button class="ghost" onclick='editUser(${JSON.stringify(u)})'>Изм.</button></td></tr>`).join('');
+  $('#usersBody').innerHTML=users.map(u=>`<tr><td>${esc(u.name)}${u.hq?' <span class="badge ok" title="ПИН, роль и статус задаются в Центре сети → Персонал">из Центра</span>':''}</td><td>${u.role==='admin'?'Администратор':'Кассир'}</td><td>${u.active?'<span class="green">активен</span>':'<span class="muted">отключён</span>'}</td>
+    <td>${u.hq?'':`<button class="ghost" onclick='editUser(${JSON.stringify(u)})'>Изм.</button>`}</td></tr>`).join('');
 }
 async function saveSettings(){
   const body={}; $$('[data-s]').forEach(el=>body[el.dataset.s]=el.value.trim());

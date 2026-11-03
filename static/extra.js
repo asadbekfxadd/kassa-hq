@@ -29,7 +29,8 @@ async function withAdmin(url, body, reason){
 }
 
 // ---------------------------------------------------------------- customer on POS
-function personalDisc(base){ return CUSTOMER && CUSTOMER.discount_pct>0 && !CHECK_DISC ? Math.round(base*CUSTOMER.discount_pct/100) : 0; }
+const custPct=c=>c?Math.max(+c.discount_pct||0,+c.level_discount||0):0;
+function personalDisc(base){ const p=custPct(CUSTOMER); return p>0 && !CHECK_DISC ? Math.round(base*p/100) : 0; }
 cartTotals = function(){
   const sub = CART.reduce((s,c)=>s+c.qty*c.price,0);
   const ld = CART.reduce((s,c)=>s+(+c.discount||0),0);
@@ -42,7 +43,7 @@ function renderCust(){
   const b=$('#custBox'); if(!b) return;
   if(!CUSTOMER){ b.innerHTML=`<div class="row"><span class="muted grow">Клиент не выбран</span><button class="ghost" onclick="pickCustomer()">👤 Клиент <kbd>F5</kbd></button></div>`; return; }
   const c=CUSTOMER;
-  b.innerHTML=`<div class="row"><div class="grow"><b>👤 ${esc(c.name)}</b><div class="muted" style="font-size:12px">${esc(c.phone||'')}${c.discount_pct?` · скидка ${c.discount_pct}%`:''}</div></div>
+  b.innerHTML=`<div class="row"><div class="grow"><b>👤 ${esc(c.name)}</b><div class="muted" style="font-size:12px">${esc(c.phone||'')}${c.level?` · <span class="badge ok">${esc(c.level)}</span>`:''}${custPct(c)?` · скидка ${custPct(c)}%`:''}${c.level_cashback?` · кешбэк ${c.level_cashback}%`:''}</div></div>
     <button class="ghost" style="padding:4px 9px" onclick="setCustomer(null)" title="Убрать клиента">✕</button></div>
     <div class="row" style="margin-top:6px;font-size:13px"><span class="grow">Бонусы: <b class="green">${fmt(c.bonus)}</b></span>${c.debt>0?`<span>Долг: <b class="red">${fmt(c.debt)}</b></span>`:''}</div>`;
 }

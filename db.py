@@ -302,6 +302,13 @@ MIGRATIONS = [
     ("customers", "price_type", "TEXT NOT NULL DEFAULT 'retail'"),   # retail | wholesale
     ("sales", "qr", "REAL NOT NULL DEFAULT 0"),
     ("sale_items", "promo", "TEXT"),
+    ("users", "uid", "TEXT"),
+    ("users", "hq", "INTEGER NOT NULL DEFAULT 0"),          # 1 — сотрудник управляется Центром (ПИН, роль, статус)
+    ("customers", "uid", "TEXT"),
+    ("customers", "synced", "INTEGER NOT NULL DEFAULT 0"),
+    ("customers", "level", "TEXT"),                         # уровень лояльности из Центра
+    ("customers", "level_discount", "REAL NOT NULL DEFAULT 0"),
+    ("customers", "level_cashback", "REAL NOT NULL DEFAULT 0"),
 ]
 
 # uid для синхронизации, отметка изменения остатка, повторная отправка при смене статуса ФМ
@@ -329,6 +336,17 @@ CREATE TRIGGER IF NOT EXISTS tr_products_uid AFTER INSERT ON products WHEN NEW.u
 BEGIN UPDATE products SET uid=lower(hex(randomblob(16))), stock_at=datetime('now','localtime') WHERE id=NEW.id; END;
 CREATE TRIGGER IF NOT EXISTS tr_products_stock AFTER UPDATE OF stock ON products
 BEGIN UPDATE products SET stock_at=datetime('now','localtime') WHERE id=NEW.id; END;
+UPDATE users SET uid=lower(hex(randomblob(16))) WHERE uid IS NULL;
+UPDATE customers SET uid=lower(hex(randomblob(16))) WHERE uid IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_users_uid ON users(uid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_customers_uid ON customers(uid);
+CREATE TRIGGER IF NOT EXISTS tr_users_uid AFTER INSERT ON users WHEN NEW.uid IS NULL
+BEGIN UPDATE users SET uid=lower(hex(randomblob(16))) WHERE id=NEW.id; END;
+CREATE TRIGGER IF NOT EXISTS tr_customers_uid AFTER INSERT ON customers WHEN NEW.uid IS NULL
+BEGIN UPDATE customers SET uid=lower(hex(randomblob(16))) WHERE id=NEW.id; END;
+CREATE TRIGGER IF NOT EXISTS tr_customers_dirty AFTER UPDATE OF name, phone, card, discount_pct, bonus, debt, birthday ON customers
+WHEN NEW.synced=1 AND OLD.synced=1
+BEGIN UPDATE customers SET synced=0 WHERE id=NEW.id; END;
 UPDATE cash_ops SET uid=lower(hex(randomblob(16))) WHERE uid IS NULL;
 UPDATE supplier_ops SET uid=lower(hex(randomblob(16))) WHERE uid IS NULL;
 CREATE TRIGGER IF NOT EXISTS tr_cash_ops_uid AFTER INSERT ON cash_ops WHEN NEW.uid IS NULL

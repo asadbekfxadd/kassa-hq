@@ -54,8 +54,9 @@ def _sync():
     push_started = db.now()
 
     sales = [dict(r) for r in con.execute("""SELECT s.id, s.uid, s.created_at, s.operation, s.total, s.cash, s.card, s.debt,
-              s.discount, s.fiscal_status, s.receipt_seq, s.qr, s.qr_provider, s.promo_disc, u.name AS cashier
-              FROM sales s LEFT JOIN users u ON u.id=s.user_id
+              s.discount, s.fiscal_status, s.receipt_seq, s.qr, s.qr_provider, s.promo_disc, u.name AS cashier,
+              u.uid AS cashier_uid, c.uid AS customer_uid
+              FROM sales s LEFT JOIN users u ON u.id=s.user_id LEFT JOIN customers c ON c.id=s.customer_id
               WHERE s.synced=0 ORDER BY s.id LIMIT 300""")]
     for x in sales:
         x["items"] = [dict(r) for r in con.execute("""SELECT p.uid AS product_uid, si.name, si.qty, si.price, si.total, si.cost_price
@@ -84,6 +85,10 @@ def _sync():
     money += [dict(r, kind="supplier_op") for r in con.execute("""SELECT o.uid, o.created_at, o.type, o.method, o.amount, s.name AS category,
                  o.note, u.name AS user FROM supplier_ops o LEFT JOIN suppliers s ON s.id=o.supplier_id LEFT JOIN users u ON u.id=o.user_id
                  WHERE o.synced=0 AND o.type IN ('payment','return') ORDER BY o.id LIMIT 500""")]
+    # сотрудники кассы (для персонала и KPI в Центре) и изменённые клиенты (бонусы, долги, контакты)
+    users = [dict(r) for r in con.execute("SELECT uid, name, role, active, hq FROM users ORDER BY id")]
+    customers = [dict(r) for r in con.execute("""SELECT uid, name, phone, card, discount_pct, bonus, debt, birthday, created_at
+                 FROM customers WHERE synced=0 ORDER BY id LIMIT 500""")]
     sh = M.open_shift(con)
     info = {"version": VERSION, "app_version": M.updater.local_version(), "shift": bool(sh),
             "cashier": (con.execute("SELECT name FROM users WHERE id=?", (sh["user_id"],)).fetchone() or {"name": ""})["name"] if sh else "",
@@ -92,11 +97,12 @@ def _sync():
             "suppliers_debt": con.execute("SELECT COALESCE(SUM(balance),0) v FROM suppliers WHERE balance>0").fetchone()["v"],
             "debtors": con.execute("SELECT COUNT(*) n FROM customers WHERE debt>0").fetchone()["n"],
             "cash_in_drawer": M.shift_report(sh["id"])["expected_cash"] if sh else None,
-            "stock_value": con.execute("SELECT COALESCE(SUM(stock*cost_price),0) v FROM products WHERE active=1 AND stock>0").fetchone()["v"]}
+            "stock_value": con.execute("SELECT COALESCE(SUM(stock*cost_price),0) v FROM products WHERE active=1 AND stock>0").fetchone()["v"],
+            "emp_errors": json.loads(s.get("hq_emp_errors") or "{}")}
     con.close()
 
     body = {"since": s.get("hq_since") or "", "sales": sales, "new_products": new_products, "stock": stock, "docs": docs, "money": money,
-            "info": info}
+            "users": users, "customers": customers, "cust_since": s.get("hq_cust_since") or "", "info": info}
     try:
         r = requests.post(url, json=body, headers={"X-Store-Token": s["hq_token"].strip()}, timeout=40)
     except requests.RequestException as e:
@@ -120,6 +126,13 @@ def _sync():
     for uid in acks.get("money", []):
         con.execute("UPDATE cash_ops SET synced=1 WHERE uid=?", (uid,))
         con.execute("UPDATE supplier_ops SET synced=1 WHERE uid=?", (uid,))
+    sent_c = {x["uid"]: x for x in customers}
+    for uid in acks.get("customers", []):
+        x = sent_c.get(uid)
+        if x:   # только если бонусы/долг не изменились, пока шёл обмен
+            con.execute("UPDATE customers SET synced=1 WHERE uid=? AND bonus=? AND debt=?", (uid, x["bonus"], x["debt"]))
+    emp_err = apply_employees(con, res.get("employees"))
+    apply_customers(con, res.get("customers_net") or [])
     sent_status = {x["uid"]: ("to_ship" if x["status"] == "preparing" else x["status"]) for x in docs}
     for uid in acks.get("docs", []):
         # только если документ не изменился, пока шёл обмен (например, отгрузку провели во время синхронизации)
@@ -201,6 +214,9 @@ def _sync():
 
     applied = apply_pending(con, res.get("pending") or {})
 
+    if res.get("cust_time"):
+        set_settings(con, hq_cust_since=res["cust_time"])
+    set_settings(con, hq_emp_errors=json.dumps(emp_err, ensure_ascii=False))
     set_settings(con, hq_since=res.get("server_time") or "", hq_stock_push=push_started, hq_last_ok=db.now(), hq_error="",
                  hq_store_name=(res.get("store") or {}).get("name", ""),
                  hq_stores=json.dumps(res.get("stores", []), ensure_ascii=False))
@@ -214,6 +230,52 @@ def _sync():
             pass   # Центр пришлёт ещё раз, применение идемпотентно
     return {"sales": len(acks.get("sales", [])), "products": applied_p, "new_docs": new_docs, "stock": len(stock),
             "docs_sent": len(acks.get("docs", [])), "migrated": {k: len(v) for k, v in applied.items()}}
+
+
+def apply_employees(con, emps):
+    """Сотрудники из Центра (Персонал): ПИН, роль и статус управляются там. Возвращает {uid: ошибка}."""
+    errors = {}
+    if emps is None:
+        return errors
+    for e in emps:
+        uid, pin = e.get("uid"), str(e.get("pin") or "").strip()
+        if not uid or not e.get("name"):
+            continue
+        role = "admin" if e.get("role") == "admin" else "cashier"
+        active = 1 if e.get("active") else 0
+        busy = con.execute("SELECT name FROM users WHERE pin=? AND COALESCE(uid,'')<>?", (pin, uid)).fetchone() if pin else None
+        if busy:
+            errors[uid] = f"ПИН уже занят на кассе сотрудником «{busy['name']}»"
+            continue
+        ex = con.execute("SELECT * FROM users WHERE uid=?", (uid,)).fetchone()
+        if ex:
+            if (ex["name"], ex["pin"], ex["role"], ex["active"], ex["hq"]) != (e["name"], pin or ex["pin"], role, active, 1):
+                con.execute("UPDATE users SET name=?, pin=?, role=?, active=?, hq=1 WHERE id=?", (e["name"], pin or ex["pin"], role, active, ex["id"]))
+                M_extras().audit("Сотрудник обновлён Центром", f"{e['name']} ({'админ' if role == 'admin' else 'кассир'}, {'активен' if active else 'отключён'})", 1, 0, con=con)
+        elif pin:
+            con.execute("INSERT INTO users(uid, name, pin, role, active, hq) VALUES(?,?,?,?,?,1)", (uid, e["name"], pin, role, active))
+            M_extras().audit("Сотрудник добавлен Центром", e["name"], 1, 0, con=con)
+    return errors
+
+
+def apply_customers(con, rows):
+    """Единая база клиентов сети: новые клиенты других магазинов и уровни лояльности. Бонусы и долг — свои у каждой кассы."""
+    for r in rows:
+        ex = con.execute("SELECT id FROM customers WHERE uid=?", (r["uid"],)).fetchone()
+        if not ex and r.get("phone"):
+            ex = con.execute("SELECT id FROM customers WHERE phone=?", (r["phone"],)).fetchone()
+        if not ex and r.get("card"):
+            ex = con.execute("SELECT id FROM customers WHERE card=?", (r["card"],)).fetchone()
+        lv = (r.get("level") or None, r.get("level_discount") or 0, r.get("level_cashback") or 0)
+        if ex:
+            con.execute("UPDATE customers SET level=?, level_discount=?, level_cashback=? WHERE id=?", lv + (ex["id"],))
+        else:
+            card = r.get("card") or None
+            if card and con.execute("SELECT 1 FROM customers WHERE card=?", (card,)).fetchone():
+                card = None
+            con.execute("""INSERT INTO customers(uid, name, phone, card, birthday, note, created_at, synced, level, level_discount, level_cashback)
+                           VALUES(?,?,?,?,?,?,?,1,?,?,?)""", (r["uid"], r.get("name") or "Клиент", r.get("phone") or None, card,
+                                                              r.get("birthday"), "Клиент сети", db.now()) + lv)
 
 
 def apply_pending(con, pend):

@@ -177,7 +177,8 @@ def init():
                      ("stores.area", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"), ("stores.opened_on", "TEXT"),
                      ("stores.city", "TEXT"), ("brand", "TEXT"),
                      ("sales.qr", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"), ("sales.qr_provider", "TEXT"),
-                     ("sales.promo_disc", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0")):
+                     ("sales.promo_disc", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"),
+                     ("sales.cashier_uid", "TEXT"), ("sales.customer_uid", "TEXT")):
         tbl, col = col.split(".") if "." in col else ("products", col)
         try:
             c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {typ}")
@@ -205,7 +206,7 @@ def index():
     return send_from_directory(os.path.join(BASE, "templates"), "hq.html")
 
 
-@app.get("/<any('hqdash.js','hqadmin.js','hqtransfers.js','hqanalytics.js'):name>")
+@app.get("/<any('hqdash.js','hqadmin.js','hqtransfers.js','hqanalytics.js','hqpeople.js'):name>")
 def hq_js(name):
     return send_from_directory(os.path.join(BASE, "templates"), name, mimetype="application/javascript")
 
@@ -738,7 +739,7 @@ def sync():
     d = request.json or {}
     c = con()
     t = now()
-    acks = {"sales": [], "docs": [], "products": [], "money": []}
+    acks = {"sales": [], "docs": [], "products": [], "money": [], "customers": []}
 
     # ---- новые товары, созданные на кассе
     for p in d.get("new_products") or []:
@@ -761,11 +762,11 @@ def sync():
             continue
         if not c.execute("SELECT 1 FROM sales WHERE uid=?", (s["uid"],)).fetchone():
             c.execute("""INSERT INTO sales(uid,store_id,local_id,created_at,operation,total,cash,card,debt,discount,cashier,
-                         fiscal_status,receipt_seq,qr,qr_provider,promo_disc) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                         fiscal_status,receipt_seq,qr,qr_provider,promo_disc,cashier_uid,customer_uid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                       (s["uid"], st["id"], s.get("id"), s.get("created_at"), s.get("operation"), num(s.get("total")),
                        num(s.get("cash")), num(s.get("card")), num(s.get("debt")), num(s.get("discount")),
                        s.get("cashier"), s.get("fiscal_status"), s.get("receipt_seq"), num(s.get("qr")), s.get("qr_provider"),
-                       num(s.get("promo_disc"))))
+                       num(s.get("promo_disc")), s.get("cashier_uid"), s.get("customer_uid")))
             for it in s.get("items") or []:
                 c.execute("INSERT INTO sale_items(sale_uid,product_uid,name,qty,price,total,cost_price) VALUES(?,?,?,?,?,?,?)",
                           (s["uid"], it.get("product_uid"), it.get("name"), num(it.get("qty")), num(it.get("price")),
@@ -846,6 +847,9 @@ def sync():
                               (uid, l["product_uid"], num(l.get("qty")), num(l.get("cost"))))
         acks["docs"].append(uid)
 
+    # ---- сотрудники и клиенты кассы (персонал, единая база клиентов, уровни лояльности)
+    people.from_till(c, st, d, t, acks)
+
     c.execute("UPDATE stores SET last_seen=?, info=? WHERE id=?",
               (t, json.dumps(d.get("info") or {}, ensure_ascii=False), st["id"]))
     c.commit()
@@ -861,8 +865,9 @@ def sync():
     cancelled = [dict(r)["uid"] for r in c.execute("""SELECT uid FROM docs WHERE status='cancelled' AND (from_store_id=? OR to_store_id=?)
                                                      AND updated_at>=?""", (st["id"], st["id"], (tnow() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")))]
     pending = migrate.pending_for(c, st["id"])
+    down = people.to_till(c, st, d, t)
     c.close()
-    return jsonify(acks=acks, products=products, docs=incoming, stores=stores_list, server_time=t, pending=pending, cancelled=cancelled,
+    return jsonify(**down, acks=acks, products=products, docs=incoming, stores=stores_list, server_time=t, pending=pending, cancelled=cancelled,
                    store={"uid": st["uid"], "name": st["name"]})
 
 
@@ -952,6 +957,8 @@ import transfers  # noqa: E402
 transfers.register(sys.modules[__name__])
 import analytics  # noqa: E402
 analytics.register(sys.modules[__name__])
+import people  # noqa: E402
+people.register(sys.modules[__name__])
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
