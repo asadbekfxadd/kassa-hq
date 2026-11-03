@@ -1,0 +1,430 @@
+940	Smenani ochish
+941	Kunlik hisobot
+942	Tozalangan cheklar
+943	Kassa uchun PIN
+944	O‘tkazma orqali
+945	Reja saqlandi
+946	Kategoriyalar bo‘yicha
+947	Qarzni yopish
+948	Tovar kirimi
+949	QQS bilan sotuvlar
+950	Muddati o‘tgan yo‘q
+951	O‘tgan oy
+952	Jami xarajatlar
+953	Yaratish
+954	Nusxa olish
+955	Tannarx
+956	Excelni yuklab olish
+957	Chekka chegirma
+958	Smena yopiq
+959	Smena va kassa
+960	Smena ochiq
+961	Aksiya yaratish
+962	To‘lov usuli
+963	Yaroqlilik muddati
+964	Fayldagi qatorlar
+965	Xaridlar summasi
+966	Egasi turi
+967	Faqat muhimlari
+968	O‘chirilgan qatorlar
+969	Aksiyani o‘chirish
+970	Tovarni o‘chirish
+971	Soatlar bo‘yicha cheklar
+972	Nimani yuborish
+973	avtomatik
+974	administrator
+975	ko‘proq. Raqam
+976	qayerda sotiladi
+977	yetkazib berish jadvali
+978	ulgurji xaridorlar uchun
+979	kun. Qizil bilan
+980	birl. muddati o‘tgan
+981	miqdorni kiritish
+982	tugaydi
+983	keyin bosing
+984	ism yoki karta
+985	kassadan naqd
+986	botga yozing
+987	ixtiyoriy
+988	mavjud emas
+989	minimumdan past
+990	qayerdan → qayerga
+991	saralash
+992	ishlab chiqaruvchi
+993	oraliq
+994	o‘tgan oy
+995	smena yopiq
+996	Markazga ketadi
+997	katalog orqali
+998	bu xarajat emas
+999	CommerceML 1C uchun
+1000	Tarmoq tahlili
+1001	Ichki EAN
+1002	Tovarni qaytarish
+1003	Barcha integratsiyalar
+1004	Pul oqimi
+1005	Tovar qo‘shish
+1006	Hujjatlar yo‘q
+1007	Mijozlarning qarzi
+1008	Markazga kirish
+1009	Yagona katalog
+1010	Omborda bor
+1011	Fayl yuklash
+1012	Smenani yopish
+1013	Yoki yangi narx
+1014	Inventarizatsiya
+1015	Sotuvlar tarixi
+1016	Ish tarixi
+1017	Qachon xarid qilishadi
+1018	Sevimli tovarlar
+1019	Tarmoqdagi do‘kon
+1020	Katakni bosing
+1021	Chatni bosing
+1022	Tushum asosi
+1023	Smenani oching
+1024	OFDga yuborish
+1025	Parol o‘zgartirildi
+1026	Ma’lumotlarni ko‘chirish
+1027	Qayta chop etish
+1028	Chekdagi pozitsiyalar
+1029	Oxirgi kirish
+1030	To‘lovni qabul qilish
+1031	O‘tgan davr
+1032	Kassa farqi
+1033	Chakana narxlar
+1034	Do‘konlar tarmog‘i
+1035	Qo‘lda chegirmalar
+1036	Parolni o‘zgartirish
+1037	Rejani saqlash
+1038	Bonuslar yechildi
+1039	To‘lov usullari
+1040	Yaroqlilik muddatlari
+1041	Qaytarish summasi
+1042	Joriy parol
+1043	Tovar zaxirasi
+1044	Chekdagi tovarlar
+1045	Tovarlar va ombor
+1046	Do‘kon tokeni
+1047	Kirish talab qilinadi
+1048	Mijozni olib tashlash
+1049	Xarajatni o‘chirish
+1050	FISKAL CHEK
+1051	Fiskallashtirilgan
+1052	Eng yomon sotuvlar
+1053	Sof foyda
+1054	Katak qizil
+1055	quyidagi jadvalda
+1056	barcha cheklar OFDda
+1057	ikkinchi monitor
+1058	qatorni tanlash
+1059	aloqasiz cheklar bor
+1060	limit tugadi
+1061	tushumdan kam
+1062	ulanmagan
+1063	sotuvlar bo‘yicha
+1064	chekdagi pozitsiyalar
+1065	o‘tgan hafta
+1066	do‘konlar tarmog‘i
+1067	qatorni o‘chirish
+1068	N + M sovg‘a
+1069	Chekni avtomatik chop etish
+1070	Tafovutlar dalolatnomasi
+1071	Aksiya saqlandi
+1072	Yalpi foyda
+1073	PIN-kodni kiriting
+1074	Yangisini chiqarish
+1075	Kunlar bo‘yicha tushum
+1076	Tezkor tugmalar
+1077	Pul oqimida
+1078	Sotuvlar dinamikasi
+1079	Tovarlarni qo‘shing
+1080	Yetkazib beruvchiga qarz
+1081	Naqd bo‘lishi kerak
+1082	Kassaga kirish
+1083	Agar token oshkor bo‘lsa
+1084	Amallar jurnali
+1085	Xarid narxi
+1086	Excel’dan import
+1087	Xaridlar tarixi
+1088	Bazadagi mijozlar
+1089	Kassalar soni
+1090	Fayldagi ustun
+1091	Bonus bilan keshbek
+1092	Kirish uchun login
+1093	Min. miqdor
+1094	Min. chek summasi
+1095	Bir nechta mumkin
+1096	Butun do‘konga
+1097	Kelishuvga
+1098	Kelishuvda
+1099	Yangi kategoriya
+1100	Hozir to‘landi
+1101	Kechiktirilgan cheklar
+1102	Qatorlarni belgilang
+1103	Foyda hisoboti
+1104	X-hisobotni chop etish
+1105	Narx yorliqlarini chop etish
+1106	Qarzni to‘lash
+1107	To‘langan qarzlar
+1108	Mos kelgan pozitsiyalar
+1109	Birinchilari ko‘rsatildi
+1110	Tovarlarni ko‘rsatish
+1111	Oxirgi tashrif
+1112	Oxirgi almashinuv
+1113	Yetkazib beruvchilar yo‘q
+1114	Namuna to‘ldirildi
+1115	Qiymatlar namunasi
+1116	Kirimni o‘tkazish
+1117	Nasiyaga sotildi
+1118	Kassadan xarajat
+1119	Xarajat saqlandi
+1120	Zaxira nusxalar
+1121	Aloqa tekshirildi
+1122	Markaz bilan aloqa
+1123	Ombor tannarxda
+1124	Botni yarating:
+1125	Yaratilgan tovarlar
+1126	Qarzdan yechildi
+1127	Mijoz telefoni
+1128	Tovar topilmadi
+1129	Promokodni olib tashlash
+1130	Qatorni o‘chirish
+1131	Rejani belgilash
+1132	Interfeys rangi
+1133	Markaz xabardor qilindi
+1134	Cheklar va qaytarishlar
+1135	Sotish uchun
+1136	manzil ko‘rsatilmagan
+1137	tushumga hissa
+1138	kamida saqlash
+1139	ekspeditor ismi
+1140	quti ochilgan
+1141	sotib olingan tovar
+1142	qoldiqda kam
+1143	yozishni boshlang
+1144	kira olmaydi
+1145	noto‘g‘ri format
+1146	yuk xatida yo‘q
+1147	lekin talab o‘zgaruvchan
+1148	tozalangan cheklar bo‘yicha
+1149	oxirgi almashinuv
+1150	keyin saqlang
+1151	foyda va marja
+1152	menyuni ochish
+1153	baxtli soatlar
+1154	faqat qarzdorlar
+1155	Tarmoqdagi do‘kon ID
+1156	Hisobdagi bonuslar
+1157	Qaytarishlar ayirildi
+1158	Shu oy tug‘ilganlar
+1159	Chegirma kartasi
+1160	Xush kelibsiz
+1161	API hujjatlari
+1162	Yetkazib beruvchilarga qarz
+1163	Kassalarga yetkazish
+1164	Ma’lumotlarni yuklash
+1165	Qoldiqni almashtirish
+1166	Narxni o‘zgartirish
+1167	Naqd pulni olish
+1168	Mijoz tanlanmagan
+1169	Standart QQS
+1170	Nimaga amal qiladi
+1171	Kassadagi naqd pul
+1172	Bonuslar berildi
+1173	Okladlarni hisoblash
+1174	Kassir hisoboti
+1175	Qaytarishni rasmiylashtirish
+1176	Hozircha xaridlar yo‘q
+1177	Oxirgi kirim
+1178	Foyda va zararlar
+1179	Qaytarishni o‘tkazish
+1180	Qabul qilishni o‘tkazish
+1181	Sotuv bekor qilindi
+1182	Boshidagi mayda pul
+1183	Haqiqatda topshirildi
+1184	Sinx. holati
+1185	Sinxronlandi
+1186	Sinxronlash
+1187	Tovarni skanerlang
+1188	Qatorga chegirma
+1189	Ombor chakana narxda
+1190	Kartaga qancha
+1191	Tez orada tugaydi
+1192	Smena ochilmagan
+1193	Fayldan yaratish
+1194	Do‘konlarni yaratish
+1195	Qatorlarni saqlash
+1196	Qoldiq holatlari
+1197	Qatorlar saqlandi
+1198	Chek ostidagi matn
+1199	Do‘kon telefoni
+1200	Token nusxalandi
+1201	E’tibor talab qiladi
+1202	E’tibor talab qiladi
+1203	Tarmoq bildirishnomalari
+1204	Hujjatni o‘chirish
+1205	Nomini kiriting
+1206	Darajalar saqlandi
+1207	Narx o‘zgarmagan
+1208	Narxlar o‘zgarmaydi
+1209	Chatlar topilmadi
+1210	Xaridor ekrani
+1211	noyabr uchun ijara
+1212	fiskalizatsiyasiz
+1213	kiritish shart emas
+1214	zaxira ko‘p bo‘lgan joyda
+1215	hozir amal qiladi
+1216	chegirma kartasi
+1217	Z-hisobotni yoping
+1218	fayl ustunidan
+1219	katta qaytarishlar
+1220	ko‘chish sanasiga
+1221	uni oshkor qilmang
+1222	lekin sotilmagan
+1223	rejalar va foyda
+1224	kassalarni ulang
+1225	to‘g‘ridan-to‘g‘ri Telegramga
+1226	muntazam buyurtma
+1227	skaner bilan solishtiring
+1228	tovarni skanerlang
+1229	qatorga chegirma
+1230	tokenni nusxalang
+1231	barqaror talab
+1232	FM Z-hisoboti ochiq
+1233	Hisoblardagi bonuslar
+1234	Naqd pul kiritish
+1235	Qaytarishlar bo‘lmagan
+1236	NAQD PUL HARAKATI
+1237	Kirimga qo‘shish
+1238	Do‘konlarni qo‘shing
+1239	Hujjatlarni kutmoqda
+1240	Yuklangan tovarlar
+1241	Excel’dan yuklash
+1242	O‘zgarishlar bo‘lmagan
+1243	Davr ichida tugaydi
+1244	Hujjat tarixi
+1245	Egasining kabineti
+1246	Kassa operatsiyalari
+1247	Kalit yaratildi
+1248	Kassirlar nazorati
+1249	Markirovkalanadigan tovar
+1250	ABC × XYZ matritsasi
+1251	Do‘kon nomi
+1252	Kassadan naqd pul
+1253	Boshlang‘ich qoldiq
+1254	Berilgan bonuslar
+1255	Hech narsa topilmadi
+1256	Yangi ko‘chirish
+1257	Havolalar uchun yangi kalit
+1258	Yetkazib beruvchiga to‘lov
+1259	Bonuslar bilan to‘landi
+1260	Hujjatni bekor qilish
+1261	Ko‘chiradigan narsa yo‘q
+1262	To‘lov tizimlari
+1263	Oxirgi kirimlar
+1264	Foyda va xarajatlar
+1265	Qabul qilish o‘tkazildi
+1266	Hisobdan chiqarishni o‘tkazish
+1267	Qatorlarni o‘tkazib yuborish
+1268	Tovarlarni skanerlang
+1269	Tokenni nusxalash
+1270	Qoralamalar yaratish
+1271	Qarzni to‘lash muddati
+1272	Summa yoki foiz
+1273	Sotilmagan tovarlar
+1274	Sodiqlik darajalari
+1275	Moliya → Xarajatlar
+1276	Fiskal modul
+1277	Narxni Markaz belgilaydi
+1278	Hali cheklar bo‘lmagan
+1279	Qadoq shtrix-kodi
+1280	yetkazib beruvchiga qarzga
+1281	hafta kuni × soat
+1282	va yana bosing
+1283	eng yaxshi ko‘rsatkich
+1284	minimal zaxira
+1285	birinchi xaridga
+1286	omborga kelib tushadi
+1287	fiskal bo‘lmagan cheklar
+1288	kirim miqdori bo‘yicha
+1289	foiz yoki summa
+1290	tasnif.soliq.uz dan
+1291	kulrang — shaxsiy reja
+1292	telefon yoki karta
+1293	telefon yoki pochta
+1294	narxni Markaz belgilaydi
+1295	Chat ID qo‘yildi
+1296	Administrator PIN-kodi
+1297	Egasiga Telegram
+1298	Yetkazib beruvchiga qaytarish
+1299	Oylar bo‘yicha tushum
+1300	Kirimga qo‘shildi
+1301	Do‘konlarga kirish
+1302	FM zavod raqami
+1303	Yuklangan ma’lumotlar
+1304	O‘zgaruvchini belgilang
+1305	Namuna bilan to‘ldirish
+1306	So‘rov nusxalandi
+1307	Qayta baholashlar tarixi
+1308	Konversiya paydo bo‘ladi
+1309	Shaxsiy sotuv rejasi
+1310	Sodiqlik va nasiya
+1311	Modul tayyorlangan
+1312	Qatorga kursorni olib boring
+1313	Yangi sotuv narxi
+1314	Hammaga bitta narx
+1315	Yetkazib beruvchilarga to‘lovlar
+1316	Qoldiq kamayadi
+1317	Do‘konga jo‘natish
+1318	Jo‘natish o‘tkazildi
+1319	Yuk xatini bekor qilish
+1320	Hisobotlar va tahlil
+1321	Qayta baholashlar bo‘lmagan
+1322	Naqd pulda olindi
+1323	Do‘konga yetkazib berish
+1324	Hujjatni tekshiring
+1325	Oylar bo‘yicha sotuvlar
+1326	Muddati o‘tgan pozitsiyalar
+1327	Qoldiq bo‘yicha farq
+1328	Moddalar bo‘yicha xarajatlar
+1329	Butun chekka chegirma
+1330	Yaratish va tasdiqlash
+1331	Qoralamani saqlash
+1332	Xaridingiz uchun rahmat
+1333	Hisobdan chiqarish o‘tkazildi
+1334	Barcha darajalarni o‘chirish
+1335	Qadoqlar shtrix-kodlari
+1336	filial kartochkasida
+1337	kecha shu soatgacha
+1338	sarlavhalar qatorda
+1339	tarix saqlanadi
+1340	topilmadi. Yaratish
+1341	hech narsa tugamaydi
+1342	kamida bittasi kerak
+1343	har … yangilanadi
+1344	ortiqcha deb belgilandi
+1345	tovarni skanerlang
+1346	chekda chop etiladi
+1347	PIN buzishga urinishlar
+1348	qoldiq bo‘yicha farq
+1349	Uzum Market vitrinasi
+1350	Integratsiyani yoqish
+1351	Yangi versiya tayyor
+1352	Ularni tugma bilan qo‘shing
+1353	Tarmoqning yagona katalogi
+1354	Agar tovar allaqachon bo‘lsa
+1355	Yetkazib beruvchi Excel faylidan
+1356	Darajalar bo‘yicha mijozlar
+1357	Kommunal xizmatlar
+1358	Foydalanish limiti
+1359	Tanlangan tovarlarga
+1360	Sozlamalar saqlandi
+1361	Yuborilmagan cheklar
+1362	Hali almashinuvlar bo‘lmagan
+1363	Aylanma qaydnoma
+1364	Batafsil tushuntirish
+1365	Mijozga bir marta
+1366	Do‘konga yuborish
+1367	Qaytarishni rasmiylashtirish
+1368	Shaxsiy chegirma
+1369	Xodimlarga reja

@@ -217,7 +217,7 @@ def index():
     return send_from_directory(os.path.join(BASE, "templates"), "hq.html")
 
 
-@app.get("/<any('hqdash.js','hqadmin.js','hqtransfers.js','hqanalytics.js','hqpeople.js','hqintegr.js'):name>")
+@app.get("/<any('hqdash.js','hqadmin.js','hqtransfers.js','hqanalytics.js','hqpeople.js','hqintegr.js','i18n.js'):name>")
 def hq_js(name):
     return send_from_directory(os.path.join(BASE, "templates"), name, mimetype="application/javascript")
 
@@ -890,7 +890,7 @@ def sync():
 # ================================================================ обновления касс
 REPO_ROOT = os.path.dirname(BASE)          # касса лежит в корне репозитория, Центр — в hq/
 _UPD = {"version": None, "zip": None, "sha256": None}
-UPD_SKIP_DIRS = {"hq", ".git", ".github", "data", "__pycache__", "node_modules"}
+UPD_SKIP_DIRS = {"hq", ".git", ".github", "data", "__pycache__", "node_modules", "tools", "docs"}
 UPD_SKIP_FILES = {"VERSION", "railway.json", "Procfile", ".gitignore"}
 
 
