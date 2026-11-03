@@ -291,6 +291,7 @@ MIGRATIONS = [
     ("doc_lines", "expiry", "TEXT"),
     ("products", "wholesale_price", "REAL NOT NULL DEFAULT 0"),
     ("products", "brand", "TEXT"),
+    ("docs", "picking", "INTEGER NOT NULL DEFAULT 0"),
     ("customers", "price_type", "TEXT NOT NULL DEFAULT 'retail'"),   # retail | wholesale
     ("sales", "qr", "REAL NOT NULL DEFAULT 0"),
     ("sale_items", "promo", "TEXT"),

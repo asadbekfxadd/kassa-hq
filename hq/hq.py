@@ -198,7 +198,7 @@ def index():
     return send_from_directory(os.path.join(BASE, "templates"), "hq.html")
 
 
-@app.get("/<any('hqdash.js','hqadmin.js'):name>")
+@app.get("/<any('hqdash.js','hqadmin.js','hqtransfers.js'):name>")
 def hq_js(name):
     return send_from_directory(os.path.join(BASE, "templates"), name, mimetype="application/javascript")
 
@@ -577,13 +577,26 @@ def doc_create():
     c = con()
     uid = uuid.uuid4().hex
     t = now()
-    # перемещение, созданное в Центре, сначала уходит отправителю (status=to_ship), поставка — сразу получателю
-    status = "to_ship" if typ == "transfer" else "sent"
+    # поставка уходит сразу получателю; перемещение — черновик / на согласование / сразу отправителю, если есть право одобрять
+    mode = d.get("mode") or "approve"
+    if typ == "supply":
+        status = "sent"
+    elif mode == "draft":
+        status = "draft"
+    elif mode == "approve" and rbac.can("docs.approve") and rbac.store_allowed(from_id):
+        status = "to_ship"
+    else:
+        status = "pending"
     c.execute("""INSERT INTO docs(uid,number,type,status,from_store_id,to_store_id,supplier,note,created_at,created_by,
                  sent_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
               (uid, doc_number(c, typ), typ, status, from_id, to_id, d.get("supplier", ""), d.get("note", ""), t,
                (rbac.user() or {}).get("name") or "Центр", t if status == "sent" else None, t))
     rbac.audit("Создана накладная" if typ == "supply" else "Создано перемещение", f"{len(lines)} строк", to_id, c=c)
+    transfers.event(c, uid, "draft" if typ == "transfer" else "sent", "Создан документ")
+    if typ == "transfer" and status != "draft":
+        transfers.event(c, uid, status, "")
+    if status == "to_ship":
+        c.execute("UPDATE docs SET approved_at=?, approved_by=? WHERE uid=?", (t, (rbac.user() or {}).get("name", ""), uid))
     for l in lines:
         c.execute("INSERT INTO doc_lines(doc_uid,product_uid,qty,cost,price) VALUES(?,?,?,?,?)",
                   (uid, l["product_uid"], num(l["qty"]), num(l.get("cost")), num(l.get("price"))))
@@ -766,12 +779,17 @@ def sync():
         uid = dc.get("uid")
         if not uid:
             continue
+        if transfers.from_till(c, st, dc, t):
+            acks["docs"].append(uid)
+            continue
         ex = c.execute("SELECT * FROM docs WHERE uid=?", (uid,)).fetchone()
         if dc.get("status") == "received":
-            if ex and ex["to_store_id"] == st["id"]:
-                c.execute("""UPDATE docs SET status='received', received_at=?, updated_at=?,
-                             note=CASE WHEN ?='' THEN note WHEN COALESCE(note,'')='' THEN ? ELSE note||' | '||? END WHERE uid=?""",
-                          (dc.get("received_at") or t, t, dc.get("comment") or "", dc.get("comment") or "", dc.get("comment") or "", uid))
+            if ex and ex["to_store_id"] == st["id"] and ex["status"] == "sent":
+                old_note, cm = (ex["note"] or "").strip(), (dc.get("comment") or "").strip()
+                # касса присылает свою заметку целиком (исходная + комментарий приёмки) — не дублируем
+                note = old_note if not cm or cm == old_note else (cm if not old_note or cm.startswith(old_note) else old_note + " | " + cm)
+                c.execute("UPDATE docs SET status='received', received_at=?, updated_at=?, note=? WHERE uid=?",
+                          (dc.get("received_at") or t, t, note, uid))
                 fact = {l["product_uid"]: num(l.get("qty_fact")) for l in dc.get("lines") or []}
                 known = set()
                 for l in c.execute("SELECT id, product_uid FROM doc_lines WHERE doc_uid=?", (uid,)).fetchall():
@@ -780,6 +798,7 @@ def sync():
                 for pu, qf in fact.items():          # лишний товар, которого не было в накладной
                     if pu not in known and qf:
                         c.execute("INSERT INTO doc_lines(doc_uid,product_uid,qty,qty_fact) VALUES(?,?,0,?)", (uid, pu, qf))
+                transfers.after_received(c, uid, st)
             elif not ex:                              # приход без накладной Центра (импорт/свой поставщик)
                 c.execute("""INSERT INTO docs(uid,number,type,status,to_store_id,supplier,note,created_at,created_by,
                              received_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
@@ -820,9 +839,11 @@ def sync():
                        (st["id"], st["id"])).fetchall():
         incoming.append(load_doc(r["uid"], c))
     stores_list = [dict(r) for r in c.execute("SELECT uid, name FROM stores WHERE active=1 AND id<>?", (st["id"],))]
+    cancelled = [dict(r)["uid"] for r in c.execute("""SELECT uid FROM docs WHERE status='cancelled' AND (from_store_id=? OR to_store_id=?)
+                                                     AND updated_at>=?""", (st["id"], st["id"], (tnow() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")))]
     pending = migrate.pending_for(c, st["id"])
     c.close()
-    return jsonify(acks=acks, products=products, docs=incoming, stores=stores_list, server_time=t, pending=pending,
+    return jsonify(acks=acks, products=products, docs=incoming, stores=stores_list, server_time=t, pending=pending, cancelled=cancelled,
                    store={"uid": st["uid"], "name": st["name"]})
 
 
@@ -908,6 +929,8 @@ import stores2  # noqa: E402
 stores2.register(sys.modules[__name__])
 import stockhq  # noqa: E402
 stockhq.register(sys.modules[__name__])
+import transfers  # noqa: E402
+transfers.register(sys.modules[__name__])
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

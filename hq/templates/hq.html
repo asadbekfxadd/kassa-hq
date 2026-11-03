@@ -115,11 +115,13 @@ svg.ch text{font-size:10.5px;fill:#8a94a6} svg.ch .hv:hover rect:first-child{fil
   <section class="view" id="v-dash"><div id="dashBox"></div></section>
 
   <section class="view" id="v-docs">
-    <div class="card">
-      <div class="row wrap" style="margin-bottom:10px"><h2 class="grow" style="margin:0">Накладные: поставки и перемещения</h2>
-        <button class="p" onclick="newDoc('supply')">+ Поставка в магазин</button><button class="b" onclick="newDoc('transfer')">⇄ Перемещение</button></div>
-      <div class="tbl"><table><thead><tr><th>№</th><th>Тип</th><th>Откуда</th><th>Куда</th><th>Статус</th><th class="n">Строк</th><th class="n">Отправлено</th><th class="n">Принято</th><th class="n">Сумма</th><th>Создана</th><th></th></tr></thead><tbody id="docsBody"></tbody></table></div>
+    <div class="dtool"><div class="seg" id="dcTabs"><button data-t="transfer" class="on">Перемещения</button><button data-t="supply">Поставки</button><button data-t="reco">Рекомендации</button></div>
+      <span class="grow"></span><button class="p" id="dcNewS" onclick="newDoc('supply')">+ Поставка в магазин</button><button class="p" id="dcNewT" onclick="newDoc('transfer')">⇄ Новое перемещение</button></div>
+    <div id="dcList">
+      <div class="row wrap" id="dcChips" style="gap:6px;margin-bottom:10px"></div>
+      <div class="card"><div class="tbl"><table><thead><tr><th>№</th><th>Откуда</th><th>Куда</th><th>Статус</th><th class="n">Строк</th><th class="n">План</th><th class="n">Отгружено</th><th class="n">Принято</th><th class="n">Сумма</th><th>Создан</th><th></th></tr></thead><tbody id="docsBody"></tbody></table></div></div>
     </div>
+    <div id="dcReco" class="hidden"></div>
   </section>
 
   <section class="view" id="v-stock">
@@ -337,7 +339,7 @@ function newDoc(type){
     <div style="max-height:45vh;overflow:auto;margin-top:8px"><table><thead><tr><th>Товар</th><th class="n">Кол-во</th><th class="n">Себест.</th><th class="n">Сумма</th><th></th></tr></thead><tbody id="ndBody"></tbody></table></div>
     <div class="row" style="margin-top:8px"><b class="grow" id="ndTot"></b></div>
     <p class="muted" style="margin:6px 0 0">${type==='supply'?'Магазин увидит накладную в кассе («Поступления») и примет её сканером.':'Магазин-отправитель отсканирует товар при отгрузке, получатель — при приёмке. Расхождения видны здесь.'}</p>
-    <div class="actions"><button onclick="closeM()">Отмена</button><button class="p" id="ndOk">Отправить в магазин</button></div>`,'wide');
+    <div class="actions"><button onclick="closeM()">Отмена</button>${type==='transfer'?`<button data-mode="draft" class="ndGo">Сохранить черновик</button><button data-mode="submit" class="ndGo">На согласование</button>${canApproveAny()?'<button class="p ndGo" data-mode="approve">Одобрить и отправить</button>':''}`:'<button class="p ndGo" data-mode="approve">Отправить в магазин</button>'}</div>`,'wide');
   if(type==='transfer' && STORES.length>1) m.querySelector('#ndTo').selectedIndex=1;
   const draw=()=>{ m.querySelector('#ndBody').innerHTML=lines.map((l,i)=>`<tr><td>${esc(l.name)} <span class="muted">${esc(l.barcode||'')}</span></td>
       <td class="n"><input type="number" step="any" value="${l.qty}" style="width:80px" data-q="${i}"></td><td class="n"><input type="number" step="any" value="${l.cost}" style="width:110px" data-c="${i}"></td>
@@ -358,9 +360,9 @@ function newDoc(type){
   m.querySelector('#ndF')?.addEventListener('change',async e=>{ const fd=new FormData(); fd.append('file',e.target.files[0]);
     try{ const r=await api('/api/docs/parse',{method:'POST',body:fd}); r.lines.forEach(l=>{ const ex=lines.find(x=>x.product_uid===l.product_uid); if(ex) ex.qty+=l.qty; else lines.push(l); }); draw();
       toast(`Загружено ${r.lines.length} строк`+(r.missing.length?`, не найдено в каталоге: ${r.missing.length}`:''), r.missing.length?'err':'ok'); }catch(er){ toast(er.message,'err'); } });
-  m.querySelector('#ndOk').onclick=async()=>{ try{
-    await api('/api/docs',{method:'POST',body:{type,supplier:m.querySelector('#ndSup')?.value,from_store_id:m.querySelector('#ndFrom')?.value,to_store_id:m.querySelector('#ndTo').value,note:m.querySelector('#ndNote').value,lines}});
-    m.remove(); toast('Накладная отправлена в магазин','ok'); loadDocs(); }catch(e){ toast(e.message,'err'); } };
+  m.querySelectorAll('.ndGo').forEach(btn=>btn.onclick=async()=>{ try{
+    const r=await api('/api/docs',{method:'POST',body:{type,mode:btn.dataset.mode,supplier:m.querySelector('#ndSup')?.value,from_store_id:m.querySelector('#ndFrom')?.value,to_store_id:m.querySelector('#ndTo').value,note:m.querySelector('#ndNote').value,lines}});
+    m.remove(); toast(type==='supply'?'Накладная отправлена в магазин':`Перемещение ${r.number}: ${DST[r.status]?.[0]||r.status}`,'ok'); loadDocs(); }catch(e){ toast(e.message,'err'); } });
   draw();
 }
 // ---------------- migrate
@@ -439,6 +441,7 @@ setInterval(()=>{ if($('#v-dash').classList.contains('on')&&!$('#mroot .modal'))
 </script>
 <script src="/hqdash.js"></script>
 <script src="/hqadmin.js"></script>
+<script src="/hqtransfers.js"></script>
 <script>boot();
 </script>
 </body>

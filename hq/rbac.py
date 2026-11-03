@@ -29,15 +29,15 @@ PERMS = {
     "plans.edit": "Планы продаж", "users": "Пользователи и роли", "catalog.view": "Каталог: просмотр",
     "catalog.edit": "Каталог: изменение цен и товаров", "stock": "Остатки", "docs.view": "Поставки и перемещения: просмотр",
     "docs.create": "Поставки и перемещения: создание", "sales": "Продажи и отчёты", "finance": "Прибыль, себестоимость, рентабельность",
-    "migrate": "Переезд данных", "audit": "Журнал действий",
+    "docs.approve": "Перемещения: согласование и закрытие", "migrate": "Переезд данных", "audit": "Журнал действий",
 }
 _ALL = set(PERMS)
 ROLE_PERMS = {
     "superadmin": _ALL,
     "owner": _ALL,
     "director": _ALL - {"users", "migrate"},
-    "regional": {"dash", "stores.view", "plans.edit", "catalog.view", "stock", "docs.view", "docs.create", "sales", "finance"},
-    "store_manager": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "docs.create", "sales", "finance"},
+    "regional": {"dash", "stores.view", "plans.edit", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance"},
+    "store_manager": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance"},
     "warehouse": {"catalog.view", "stock", "docs.view", "docs.create"},
     "cashier": {"dash", "sales"},
     "analyst": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "sales", "finance", "audit"},
@@ -56,6 +56,8 @@ RULES = [
     ("GET", r"^/api/products", "catalog.view"),
     ("*", r"^/api/products", "catalog.edit"),
     ("GET", r"^/api/stock", "stock"),
+    ("GET", r"^/api/transfers/recommend", "docs.view"),
+    ("POST", r"^/api/transfers/create", "docs.create"),
     ("GET", r"^/api/docs", "docs.view"),
     ("*", r"^/api/docs", "docs.create"),
     ("GET", r"^/api/sales_report$", "sales"),

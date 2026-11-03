@@ -66,14 +66,15 @@ def _sync():
     stock = [dict(r) for r in con.execute("SELECT uid, stock AS qty FROM products WHERE stock_at>=? OR ?=''",
                                            (since_stock, s.get("hq_stock_push") or ""))]
     docs = []
-    for d in con.execute("SELECT * FROM docs WHERE synced=0 AND status IN ('received','shipped')").fetchall():
+    for d in con.execute("""SELECT * FROM docs WHERE synced=0 AND (status IN ('received','shipped')
+                            OR (status='to_ship' AND type='out_transfer' AND picking=1))""").fetchall():
         d = dict(d)
         lines = [dict(r) for r in con.execute("""SELECT COALESCE(l.product_uid,p.uid) AS product_uid, l.qty_expected AS qty,
                      l.qty_fact, l.cost FROM doc_lines l LEFT JOIN products p ON p.id=l.product_id WHERE doc_id=?""", (d["id"],))]
         if d["status"] == "shipped":
             for l in lines:
                 l["qty"] = l["qty_fact"]
-        docs.append({"uid": d["uid"], "number": d["number"], "status": d["status"], "to_store_uid": d["partner_uid"],
+        docs.append({"uid": d["uid"], "number": d["number"], "status": "preparing" if d["status"] == "to_ship" else d["status"], "to_store_uid": d["partner_uid"],
                      "supplier": d["partner"] if d["type"] == "local_supply" else "", "comment": d["note"] or "",
                      "created_at": d["created_at"], "received_at": d["done_at"], "lines": lines})
     sh = M.open_shift(con)
@@ -104,8 +105,10 @@ def _sync():
             if not con.execute("SELECT 1 FROM products WHERE uid=?", (a["hq_uid"],)).fetchone():
                 con.execute("UPDATE products SET uid=? WHERE uid=?", (a["hq_uid"], a["uid"]))
         con.execute("UPDATE products SET hq=1 WHERE uid IN (?,?)", (a["uid"], a["hq_uid"]))
+    sent_status = {x["uid"]: ("to_ship" if x["status"] == "preparing" else x["status"]) for x in docs}
     for uid in acks.get("docs", []):
-        con.execute("UPDATE docs SET synced=1 WHERE uid=?", (uid,))
+        # только если документ не изменился, пока шёл обмен (например, отгрузку провели во время синхронизации)
+        con.execute("UPDATE docs SET synced=1 WHERE uid=? AND status=?", (uid, sent_status.get(uid, "")))
 
     # ---- каталог из Центра
     cats = {}
@@ -174,6 +177,12 @@ def _sync():
                          (p["barcode"] if p else l.get("barcode")), l.get("qty") or 0, l.get("cost") or 0, l.get("price") or 0))
         new_docs += 1
         M_extras().audit("Новая накладная из Центра", f"{d.get('number')} ({'отгрузка' if outgoing else 'поступление'})", 0, 0, con=con)
+
+    for uid in res.get("cancelled") or []:      # отменено в Центре до отгрузки/приёмки
+        dd = con.execute("SELECT id, number, status FROM docs WHERE uid=?", (uid,)).fetchone()
+        if dd and dd["status"] in ("expected", "receiving", "to_ship"):
+            con.execute("UPDATE docs SET status='cancelled', synced=1 WHERE id=?", (dd["id"],))
+            M_extras().audit("Накладная отменена Центром", dd["number"] or "", 1, 0, con=con)
 
     applied = apply_pending(con, res.get("pending") or {})
 
@@ -447,6 +456,8 @@ def doc_scan(did):
     con.execute("UPDATE doc_lines SET qty_fact=?, scanned_at=? WHERE id=?", (new_fact, db.now(), line["id"]))
     if doc["status"] == "expected":
         con.execute("UPDATE docs SET status='receiving', user_id=? WHERE id=?", (session["uid"], did))
+    if doc["type"] == "out_transfer" and doc["status"] == "to_ship" and not doc["picking"]:
+        con.execute("UPDATE docs SET picking=1, synced=0 WHERE id=?", (did,))      # Центр увидит «Сборка»
     con.commit()
     res = load_doc(did, con)
     con.close()

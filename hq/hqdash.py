@@ -204,8 +204,16 @@ def alerts():
                   AND EXISTS(SELECT 1 FROM doc_lines l WHERE l.doc_uid=d.uid AND ABS(COALESCE(l.qty_fact,0)-l.qty)>0.0001)""", (s14,) + fda)
     add("disc", "warn", "Расхождения при приёмке", "Принято не столько, сколько отправлено (14 дней)", len(rows), "docs", [f"{r['number']} → {r['store']}" for r in rows[:5]])
     rows = H.q("""SELECT d.number, d.status, ts.name AS store, d.created_at FROM docs d LEFT JOIN stores ts ON ts.id=d.to_store_id
-                  WHERE d.status IN ('to_ship','sent','in_transit'){fd} ORDER BY d.created_at""".replace("{fd}", fd), fda)
+                  WHERE d.status IN ('to_ship','preparing','sent','in_transit'){fd} ORDER BY d.created_at""".replace("{fd}", fd), fda)
     add("transit", "info", "Необработанные перемещения и поставки", "Ждут отгрузки или приёмки", len(rows), "docs", [f"{r['number']} → {r['store']}" for r in rows[:5]])
+    if H.rbac.can("docs.approve"):
+        fa_, faa = sfs("d.from_store_id")
+        rows = H.q(f"""SELECT d.number, fs.name AS fr, ts.name AS tt FROM docs d LEFT JOIN stores fs ON fs.id=d.from_store_id
+                       LEFT JOIN stores ts ON ts.id=d.to_store_id WHERE d.status='pending'{fa_}""", faa)
+        add("approve", "warn", "Перемещения ждут согласования", "Одобрите или верните на доработку", len(rows), "docs",
+            [f"{r['number']}: {r['fr']} → {r['tt']}" for r in rows[:5]])
+        rows = H.q(f"""SELECT d.number FROM docs d WHERE d.type='transfer' AND d.status='received'{fa_}""", faa)
+        add("toclose", "info", "Перемещения с расхождениями", "Получены не полностью — проверьте и завершите", len(rows), "docs", [r["number"] for r in rows[:5]])
     off = [s["name"] for s in H.q(f"SELECT name, last_seen FROM stores WHERE active=1{fi}", fia) if not _online(s["last_seen"], now)]
     add("offline", "warn", "Кассы без связи", "Нет синхронизации больше 3 минут — данные могут быть неполными", len(off), "stores", off[:5])
     fst, fsta = sfs("st.store_id")
