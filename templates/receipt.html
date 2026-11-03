@@ -50,7 +50,8 @@
   <div class="row b big"><span>ИТОГО</span><span>{{ "{:,.0f}".format(sale.total).replace(',', ' ') }}</span></div>
   {% if sale.cash %}<div class="row"><span>Наличные</span><span>{{ "{:,.0f}".format(sale.cash).replace(',', ' ') }}</span></div>{% endif %}
   {% if sale.card %}<div class="row"><span>Карта</span><span>{{ "{:,.0f}".format(sale.card).replace(',', ' ') }}</span></div>{% endif %}
-  {% if sale.qr %}<div class="row"><span>QR-оплата</span><span>{{ "{:,.0f}".format(sale.qr).replace(',', ' ') }}</span></div>{% endif %}
+  {% if sale.qr %}<div class="row"><span>QR-оплата{% if sale.qr_provider and sale.qr_provider!='other' %} ({{ {'payme':'Payme','click':'Click','uzum':'Uzum'}.get(sale.qr_provider, sale.qr_provider) }}){% endif %}</span><span>{{ "{:,.0f}".format(sale.qr).replace(',', ' ') }}</span></div>{% endif %}
+  {% if sale.promo_code %}<div class="row"><span>Промокод {{ sale.promo_code }}</span><span>−{{ "{:,.0f}".format(sale.promo_disc or 0).replace(',', ' ') }}</span></div>{% endif %}
   {% if sale.operation == 'sale' and sale.given and sale.given > sale.cash %}
   <div class="row"><span>Получено</span><span>{{ "{:,.0f}".format(sale.given).replace(',', ' ') }}</span></div>
   <div class="row"><span>Сдача</span><span>{{ "{:,.0f}".format(sale.change).replace(',', ' ') }}</span></div>

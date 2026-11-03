@@ -129,7 +129,7 @@ def me():
     if not u:
         return err("Требуется вход", 401)
     s = db.get_settings()
-    public = {k: v for k, v in s.items() if k != "fiscal_pos_secret"}
+    public = {k: v for k, v in s.items() if k != "fiscal_pos_secret" and k not in pos5.SECRETS}
     return jsonify(user=u, settings=public, shift=open_shift())
 
 
@@ -138,7 +138,8 @@ def me():
 @admin_required
 def get_settings():
     s = db.get_settings()
-    s["fiscal_pos_secret"] = "••••" if s.get("fiscal_pos_secret") else ""
+    for k in ("fiscal_pos_secret",) + pos5.SECRETS:
+        s[k] = "••••" if s.get(k) else ""
     return jsonify(s)
 
 
@@ -150,7 +151,7 @@ def save_settings():
     for k, v in data.items():
         if k not in db.DEFAULT_SETTINGS:
             continue
-        if k == "fiscal_pos_secret" and v == "••••":
+        if k in ("fiscal_pos_secret",) + pos5.SECRETS and v == "••••":
             continue
         con.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                     (k, str(v)))
@@ -545,7 +546,10 @@ def shift_report(sid):
     expected_cash = ((sh["opening_cash"] or 0) + sale["cash"] - ref["cash"] + ops["cin"] - ops["cout"]
                      - ops["expense"] + ops["debt_cash"])
     unfiscal = q("SELECT COUNT(*) n FROM sales WHERE shift_id=? AND fiscal_status IN ('pending','error')", (sid,), one=True)["n"]
-    return {"shift": sh, "sales": sale, "refunds": ref, "net": sale["total"] - ref["total"],
+    qr_by = q("""SELECT COALESCE(NULLIF(qr_provider,''),'other') prov, COALESCE(SUM(CASE WHEN operation='sale' THEN qr ELSE -qr END),0) v
+                 FROM sales WHERE shift_id=? AND qr>0 GROUP BY prov""", (sid,))
+    promo = q("SELECT COUNT(*) n, COALESCE(SUM(promo_disc),0) v FROM sales WHERE shift_id=? AND operation='sale' AND promo_disc>0", (sid,), one=True)
+    return {"shift": sh, "sales": sale, "refunds": ref, "net": sale["total"] - ref["total"], "qr_by": qr_by, "promo": promo,
             "expected_cash": round(expected_cash, 2), "unfiscal": unfiscal, "ops": ops, "debt": debt}
 
 
@@ -742,6 +746,13 @@ def sale_create():
         extras.audit("Ручная цена подтверждена", ", ".join(f"{l['p']['name']}: {l['p']['price']:g}→{l['price']:g}" for l in odd), 1, con=con)
     # акции считаются на сервере и не входят в лимит скидки кассира
     pricing.apply_promos(con, lines)
+    # промокод: скидку считает сервер, в лимит скидки кассира не входит
+    promo_pc, promo_disc = None, 0
+    if (d.get("promo_code") or "").strip():
+        promo_pc, promo_disc, perr = pos5.promo_eval(con, d["promo_code"], sum(l["qty"] * l["price"] - l["discount"] for l in lines), cust)
+        if perr:
+            con.close()
+            return err(perr)
     bonus_used = money(d.get("bonus"))
     if bonus_used:
         if not cust:
@@ -756,7 +767,7 @@ def sale_create():
             return err(f"Бонусами можно оплатить не больше {num(s.get('bonus_max_pay_pct'), 50):g}% чека")
 
     # скидка на чек (+ бонусы) распределяется пропорционально по позициям
-    check_disc = money(d.get("discount")) + bonus_used
+    check_disc = money(d.get("discount")) + bonus_used + promo_disc
     if check_disc:
         base = sum(l["qty"] * l["price"] - l["discount"] for l in lines)
         check_disc = min(check_disc, base)
@@ -796,6 +807,11 @@ def sale_create():
                       (sh["id"], session["uid"], t, "sale", subtotal, discount, total, cash, card, given, change,
                        phone, "none" if s.get("fiscal_mode") == "off" else "pending",
                        cust["id"] if cust else None, bonus_used, bonus_earned, debt, qr)).lastrowid
+    prov = (d.get("qr_provider") or "").strip().lower()
+    con.execute("UPDATE sales SET promo_code=?, promo_disc=?, qr_provider=? WHERE id=?",
+                (promo_pc["code"] if promo_pc else None, promo_disc, prov if qr and prov in pos5.PROVIDERS else (None if not qr else "other"), sid))
+    if promo_pc:
+        pos5.promo_used(con, promo_pc, sid, cust, promo_disc)
     if cust:
         if bonus_used:
             con.execute("UPDATE customers SET bonus=bonus-? WHERE id=?", (bonus_used, cust["id"]))
@@ -1257,6 +1273,7 @@ import extras  # noqa: E402
 import reports2  # noqa: E402
 import dash  # noqa: E402
 import stock3  # noqa: E402
+import pos5  # noqa: E402
 import network  # noqa: E402
 import grocery  # noqa: E402
 import updater  # noqa: E402
@@ -1266,6 +1283,7 @@ pricing.register(sys.modules[__name__])
 reports2.register(sys.modules[__name__])
 dash.register(sys.modules[__name__])
 stock3.register(sys.modules[__name__])
+pos5.register(sys.modules[__name__])
 updater.register(sys.modules[__name__])
 network.register(sys.modules[__name__])
 grocery.register(sys.modules[__name__])

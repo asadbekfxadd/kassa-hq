@@ -29,7 +29,9 @@
   <div class="row"><span>Сумма</span><span>{{ m(r.sales.total) }}</span></div>
   <div class="row"><span>  наличные</span><span>{{ m(r.sales.cash) }}</span></div>
   <div class="row"><span>  карта</span><span>{{ m(r.sales.card) }}</span></div>
-  {% if r.sales.qr %}<div class="row"><span>  QR (Click/Payme)</span><span>{{ m(r.sales.qr) }}</span></div>{% endif %}
+  {% if r.sales.qr %}<div class="row"><span>  QR-оплата</span><span>{{ m(r.sales.qr) }}</span></div>
+  {% for x in r.qr_by %}<div class="row"><span>    {{ {'payme':'Payme','click':'Click','uzum':'Uzum'}.get(x.prov,'другой QR') }}</span><span>{{ m(x.v) }}</span></div>{% endfor %}{% endif %}
+  {% if r.promo and r.promo.n %}<div class="row"><span>  промокоды ({{ r.promo.n }})</span><span>{{ m(r.promo.v) }}</span></div>{% endif %}
   <div class="row"><span>  скидки</span><span>{{ m(r.sales.discount) }}</span></div>
   <hr>
   <div class="b">ВОЗВРАТЫ</div>
