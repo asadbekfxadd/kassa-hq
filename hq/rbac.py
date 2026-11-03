@@ -31,7 +31,8 @@ PERMS = {
     "docs.create": "Поставки и перемещения: создание", "sales": "Продажи и отчёты", "finance": "Прибыль, себестоимость, рентабельность",
     "docs.approve": "Перемещения: согласование и закрытие", "expenses": "Расходы: внесение и удаление",
     "staff": "Персонал: просмотр и KPI", "staff.edit": "Персонал: приём, изменение, ПИН кассы, оклады",
-    "crm": "Клиенты: база и аналитика", "crm.edit": "Клиенты: изменение контактов", "loyalty": "Уровни лояльности сети", "migrate": "Переезд данных", "audit": "Журнал действий",
+    "crm": "Клиенты: база и аналитика", "crm.edit": "Клиенты: изменение контактов", "loyalty": "Уровни лояльности сети",
+    "integrations": "Интеграции: настройка и журнал обмена", "ai": "AI-помощник", "migrate": "Переезд данных", "audit": "Журнал действий",
 }
 _ALL = set(PERMS)
 ROLE_PERMS = {
@@ -39,12 +40,12 @@ ROLE_PERMS = {
     "owner": _ALL,
     "director": _ALL - {"users", "migrate"},
     "regional": {"dash", "stores.view", "plans.edit", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance", "expenses",
-                 "staff", "staff.edit", "crm", "crm.edit"},
+                 "staff", "staff.edit", "crm", "crm.edit", "ai"},
     "store_manager": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance", "expenses",
-                      "staff", "staff.edit", "crm", "crm.edit"},
+                      "staff", "staff.edit", "crm", "crm.edit", "ai"},
     "warehouse": {"catalog.view", "stock", "docs.view", "docs.create"},
     "cashier": {"dash", "sales"},
-    "analyst": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "sales", "finance", "audit", "staff", "crm"},
+    "analyst": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "sales", "finance", "audit", "staff", "crm", "ai"},
 }
 ALL_STORES = {"superadmin", "owner", "director", "analyst"}   # видят всю сеть без привязки
 
@@ -66,6 +67,8 @@ RULES = [
     ("*", r"^/api/docs", "docs.create"),
     ("GET", r"^/api/sales_report$", "sales"),
     ("GET", r"^/api/an/", "sales"),
+    ("*", r"^/api/integrations", "integrations"),
+    ("*", r"^/api/ai/", "ai"),
     ("GET", r"^/api/staff", "staff"),
     ("*", r"^/api/staff", "staff.edit"),
     ("POST", r"^/api/crm/levels", "loyalty"),

@@ -206,7 +206,7 @@ def index():
     return send_from_directory(os.path.join(BASE, "templates"), "hq.html")
 
 
-@app.get("/<any('hqdash.js','hqadmin.js','hqtransfers.js','hqanalytics.js','hqpeople.js'):name>")
+@app.get("/<any('hqdash.js','hqadmin.js','hqtransfers.js','hqanalytics.js','hqpeople.js','hqintegr.js'):name>")
 def hq_js(name):
     return send_from_directory(os.path.join(BASE, "templates"), name, mimetype="application/javascript")
 
@@ -959,6 +959,10 @@ import analytics  # noqa: E402
 analytics.register(sys.modules[__name__])
 import people  # noqa: E402
 people.register(sys.modules[__name__])
+import integrations  # noqa: E402
+integrations.register(sys.modules[__name__])
+import assistant  # noqa: E402
+assistant.register(sys.modules[__name__])
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
