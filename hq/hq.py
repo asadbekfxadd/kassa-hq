@@ -69,6 +69,11 @@ CREATE TABLE IF NOT EXISTS price_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT, product_uid TEXT NOT NULL, created_at TEXT, old_price REAL, new_price REAL,
   old_cost REAL, new_cost REAL, source TEXT, user_name TEXT);
 CREATE INDEX IF NOT EXISTS ix_ph_uid ON price_history(product_uid);
+CREATE TABLE IF NOT EXISTS money_ops (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT UNIQUE NOT NULL, store_id INTEGER, created_at TEXT NOT NULL,
+  kind TEXT NOT NULL, type TEXT, method TEXT, amount REAL NOT NULL DEFAULT 0, category TEXT, note TEXT,
+  user_name TEXT, source TEXT);
+CREATE INDEX IF NOT EXISTS ix_mo_date ON money_ops(created_at);
 CREATE TABLE IF NOT EXISTS store_plans (
   store_id INTEGER NOT NULL, month TEXT NOT NULL, amount REAL NOT NULL DEFAULT 0, updated_at TEXT, PRIMARY KEY (store_id, month));
 """
@@ -170,7 +175,9 @@ def init():
                      ("shelf_days", "INTEGER DEFAULT 0"), ("wholesale_price", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"),
                      ("stores.phone", "TEXT"), ("stores.manager_id", "INTEGER"), ("stores.registers", "INTEGER DEFAULT 1"),
                      ("stores.area", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"), ("stores.opened_on", "TEXT"),
-                     ("stores.city", "TEXT"), ("brand", "TEXT")):
+                     ("stores.city", "TEXT"), ("brand", "TEXT"),
+                     ("sales.qr", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"), ("sales.qr_provider", "TEXT"),
+                     ("sales.promo_disc", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0")):
         tbl, col = col.split(".") if "." in col else ("products", col)
         try:
             c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {typ}")
@@ -198,7 +205,7 @@ def index():
     return send_from_directory(os.path.join(BASE, "templates"), "hq.html")
 
 
-@app.get("/<any('hqdash.js','hqadmin.js','hqtransfers.js'):name>")
+@app.get("/<any('hqdash.js','hqadmin.js','hqtransfers.js','hqanalytics.js'):name>")
 def hq_js(name):
     return send_from_directory(os.path.join(BASE, "templates"), name, mimetype="application/javascript")
 
@@ -731,7 +738,7 @@ def sync():
     d = request.json or {}
     c = con()
     t = now()
-    acks = {"sales": [], "docs": [], "products": []}
+    acks = {"sales": [], "docs": [], "products": [], "money": []}
 
     # ---- новые товары, созданные на кассе
     for p in d.get("new_products") or []:
@@ -754,10 +761,11 @@ def sync():
             continue
         if not c.execute("SELECT 1 FROM sales WHERE uid=?", (s["uid"],)).fetchone():
             c.execute("""INSERT INTO sales(uid,store_id,local_id,created_at,operation,total,cash,card,debt,discount,cashier,
-                         fiscal_status,receipt_seq) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                         fiscal_status,receipt_seq,qr,qr_provider,promo_disc) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                       (s["uid"], st["id"], s.get("id"), s.get("created_at"), s.get("operation"), num(s.get("total")),
                        num(s.get("cash")), num(s.get("card")), num(s.get("debt")), num(s.get("discount")),
-                       s.get("cashier"), s.get("fiscal_status"), s.get("receipt_seq")))
+                       s.get("cashier"), s.get("fiscal_status"), s.get("receipt_seq"), num(s.get("qr")), s.get("qr_provider"),
+                       num(s.get("promo_disc"))))
             for it in s.get("items") or []:
                 c.execute("INSERT INTO sale_items(sale_uid,product_uid,name,qty,price,total,cost_price) VALUES(?,?,?,?,?,?,?)",
                           (s["uid"], it.get("product_uid"), it.get("name"), num(it.get("qty")), num(it.get("price")),
@@ -766,6 +774,17 @@ def sync():
             c.execute("UPDATE sales SET fiscal_status=?, receipt_seq=? WHERE uid=?",
                       (s.get("fiscal_status"), s.get("receipt_seq"), s["uid"]))
         acks["sales"].append(s["uid"])
+
+    # ---- деньги магазина (расходы, внесения/изъятия, погашения долгов, оплаты поставщикам) — идемпотентно по uid
+    for m in d.get("money") or []:
+        if not m.get("uid"):
+            continue
+        if not c.execute("SELECT 1 FROM money_ops WHERE uid=?", (m["uid"],)).fetchone():
+            c.execute("""INSERT INTO money_ops(uid,store_id,created_at,kind,type,method,amount,category,note,user_name,source)
+                         VALUES(?,?,?,?,?,?,?,?,?,?,'till')""",
+                      (m["uid"], st["id"], m.get("created_at") or t, m.get("kind"), m.get("type"), m.get("method") or "cash",
+                       num(m.get("amount")), m.get("category") or "", m.get("note") or "", m.get("user") or ""))
+        acks["money"].append(m["uid"])
 
     # ---- остатки
     for r in d.get("stock") or []:
@@ -931,6 +950,8 @@ import stockhq  # noqa: E402
 stockhq.register(sys.modules[__name__])
 import transfers  # noqa: E402
 transfers.register(sys.modules[__name__])
+import analytics  # noqa: E402
+analytics.register(sys.modules[__name__])
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

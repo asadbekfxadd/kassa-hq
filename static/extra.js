@@ -302,7 +302,7 @@ async function payDebt(id){
 function cashOp(type){
   const T={in:'Внесение наличных',out:'Изъятие наличных (инкассация)',expense:'Расход из кассы'}[type];
   const m=modal(`<h3>${T}</h3><label>Сумма</label><input class="bigin" id="coA" autofocus>
-    ${type==='expense'?`<label>Категория</label><select id="coC"><option>Хоз. нужды</option><option>Обед / питание</option><option>Доставка / такси</option><option>Аренда</option><option>Зарплата / аванс</option><option>Поставщику</option><option>Прочее</option></select>`:''}
+    ${type==='expense'?`<label>Категория</label><select id="coC"><option>Хоз. нужды</option><option>Обед / питание</option><option>Логистика / доставка</option><option>Аренда</option><option>Зарплата / аванс</option><option>Коммунальные услуги</option><option>Маркетинг / реклама</option><option>Поставщику</option><option>Прочее</option></select>`:''}
     <label>Комментарий</label><input id="coN">
     <div class="actions"><button onclick="closeModal()">Отмена</button><button class="p" id="coGo">Провести</button></div>`);
   const go=async()=>{ try{ await api('/api/cash_ops',{method:'POST',body:{type,amount:m.querySelector('#coA').value,category:m.querySelector('#coC')?.value,note:m.querySelector('#coN').value}});

@@ -295,6 +295,10 @@ MIGRATIONS = [
     ("sales", "promo_code", "TEXT"),
     ("sales", "promo_disc", "REAL NOT NULL DEFAULT 0"),
     ("sales", "qr_provider", "TEXT"),
+    ("cash_ops", "uid", "TEXT"),
+    ("cash_ops", "synced", "INTEGER NOT NULL DEFAULT 0"),
+    ("supplier_ops", "uid", "TEXT"),
+    ("supplier_ops", "synced", "INTEGER NOT NULL DEFAULT 0"),
     ("customers", "price_type", "TEXT NOT NULL DEFAULT 'retail'"),   # retail | wholesale
     ("sales", "qr", "REAL NOT NULL DEFAULT 0"),
     ("sale_items", "promo", "TEXT"),
@@ -325,6 +329,12 @@ CREATE TRIGGER IF NOT EXISTS tr_products_uid AFTER INSERT ON products WHEN NEW.u
 BEGIN UPDATE products SET uid=lower(hex(randomblob(16))), stock_at=datetime('now','localtime') WHERE id=NEW.id; END;
 CREATE TRIGGER IF NOT EXISTS tr_products_stock AFTER UPDATE OF stock ON products
 BEGIN UPDATE products SET stock_at=datetime('now','localtime') WHERE id=NEW.id; END;
+UPDATE cash_ops SET uid=lower(hex(randomblob(16))) WHERE uid IS NULL;
+UPDATE supplier_ops SET uid=lower(hex(randomblob(16))) WHERE uid IS NULL;
+CREATE TRIGGER IF NOT EXISTS tr_cash_ops_uid AFTER INSERT ON cash_ops WHEN NEW.uid IS NULL
+BEGIN UPDATE cash_ops SET uid=lower(hex(randomblob(16))) WHERE id=NEW.id; END;
+CREATE TRIGGER IF NOT EXISTS tr_supplier_ops_uid AFTER INSERT ON supplier_ops WHEN NEW.uid IS NULL
+BEGIN UPDATE supplier_ops SET uid=lower(hex(randomblob(16))) WHERE id=NEW.id; END;
 CREATE TRIGGER IF NOT EXISTS tr_sales_uid AFTER INSERT ON sales WHEN NEW.uid IS NULL
 BEGIN UPDATE sales SET uid=lower(hex(randomblob(16))) WHERE id=NEW.id; END;
 CREATE TRIGGER IF NOT EXISTS tr_sales_fiscal AFTER UPDATE OF fiscal_status ON sales

@@ -54,7 +54,8 @@ def _sync():
     push_started = db.now()
 
     sales = [dict(r) for r in con.execute("""SELECT s.id, s.uid, s.created_at, s.operation, s.total, s.cash, s.card, s.debt,
-              s.discount, s.fiscal_status, s.receipt_seq, u.name AS cashier FROM sales s LEFT JOIN users u ON u.id=s.user_id
+              s.discount, s.fiscal_status, s.receipt_seq, s.qr, s.qr_provider, s.promo_disc, u.name AS cashier
+              FROM sales s LEFT JOIN users u ON u.id=s.user_id
               WHERE s.synced=0 ORDER BY s.id LIMIT 300""")]
     for x in sales:
         x["items"] = [dict(r) for r in con.execute("""SELECT p.uid AS product_uid, si.name, si.qty, si.price, si.total, si.cost_price
@@ -77,13 +78,24 @@ def _sync():
         docs.append({"uid": d["uid"], "number": d["number"], "status": "preparing" if d["status"] == "to_ship" else d["status"], "to_store_uid": d["partner_uid"],
                      "supplier": d["partner"] if d["type"] == "local_supply" else "", "comment": d["note"] or "",
                      "created_at": d["created_at"], "received_at": d["done_at"], "lines": lines})
+    # деньги: кассовые операции (расходы, внесения, изъятия, погашения долгов) и оплаты поставщикам
+    money = [dict(r, kind="cash_op") for r in con.execute("""SELECT c.uid, c.created_at, c.type, c.method, c.amount, c.category, c.note,
+                 u.name AS user FROM cash_ops c LEFT JOIN users u ON u.id=c.user_id WHERE c.synced=0 ORDER BY c.id LIMIT 500""")]
+    money += [dict(r, kind="supplier_op") for r in con.execute("""SELECT o.uid, o.created_at, o.type, o.method, o.amount, s.name AS category,
+                 o.note, u.name AS user FROM supplier_ops o LEFT JOIN suppliers s ON s.id=o.supplier_id LEFT JOIN users u ON u.id=o.user_id
+                 WHERE o.synced=0 AND o.type IN ('payment','return') ORDER BY o.id LIMIT 500""")]
     sh = M.open_shift(con)
     info = {"version": VERSION, "app_version": M.updater.local_version(), "shift": bool(sh),
             "cashier": (con.execute("SELECT name FROM users WHERE id=?", (sh["user_id"],)).fetchone() or {"name": ""})["name"] if sh else "",
-            "unsent_fiscal": con.execute("SELECT COUNT(*) n FROM sales WHERE fiscal_status IN ('pending','error')").fetchone()["n"]}
+            "unsent_fiscal": con.execute("SELECT COUNT(*) n FROM sales WHERE fiscal_status IN ('pending','error')").fetchone()["n"],
+            "customers_debt": con.execute("SELECT COALESCE(SUM(debt),0) v FROM customers WHERE debt>0").fetchone()["v"],
+            "suppliers_debt": con.execute("SELECT COALESCE(SUM(balance),0) v FROM suppliers WHERE balance>0").fetchone()["v"],
+            "debtors": con.execute("SELECT COUNT(*) n FROM customers WHERE debt>0").fetchone()["n"],
+            "cash_in_drawer": M.shift_report(sh["id"])["expected_cash"] if sh else None,
+            "stock_value": con.execute("SELECT COALESCE(SUM(stock*cost_price),0) v FROM products WHERE active=1 AND stock>0").fetchone()["v"]}
     con.close()
 
-    body = {"since": s.get("hq_since") or "", "sales": sales, "new_products": new_products, "stock": stock, "docs": docs,
+    body = {"since": s.get("hq_since") or "", "sales": sales, "new_products": new_products, "stock": stock, "docs": docs, "money": money,
             "info": info}
     try:
         r = requests.post(url, json=body, headers={"X-Store-Token": s["hq_token"].strip()}, timeout=40)
@@ -105,6 +117,9 @@ def _sync():
             if not con.execute("SELECT 1 FROM products WHERE uid=?", (a["hq_uid"],)).fetchone():
                 con.execute("UPDATE products SET uid=? WHERE uid=?", (a["hq_uid"], a["uid"]))
         con.execute("UPDATE products SET hq=1 WHERE uid IN (?,?)", (a["uid"], a["hq_uid"]))
+    for uid in acks.get("money", []):
+        con.execute("UPDATE cash_ops SET synced=1 WHERE uid=?", (uid,))
+        con.execute("UPDATE supplier_ops SET synced=1 WHERE uid=?", (uid,))
     sent_status = {x["uid"]: ("to_ship" if x["status"] == "preparing" else x["status"]) for x in docs}
     for uid in acks.get("docs", []):
         # только если документ не изменился, пока шёл обмен (например, отгрузку провели во время синхронизации)

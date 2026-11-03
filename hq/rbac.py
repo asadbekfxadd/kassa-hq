@@ -29,15 +29,15 @@ PERMS = {
     "plans.edit": "Планы продаж", "users": "Пользователи и роли", "catalog.view": "Каталог: просмотр",
     "catalog.edit": "Каталог: изменение цен и товаров", "stock": "Остатки", "docs.view": "Поставки и перемещения: просмотр",
     "docs.create": "Поставки и перемещения: создание", "sales": "Продажи и отчёты", "finance": "Прибыль, себестоимость, рентабельность",
-    "docs.approve": "Перемещения: согласование и закрытие", "migrate": "Переезд данных", "audit": "Журнал действий",
+    "docs.approve": "Перемещения: согласование и закрытие", "expenses": "Расходы: внесение и удаление", "migrate": "Переезд данных", "audit": "Журнал действий",
 }
 _ALL = set(PERMS)
 ROLE_PERMS = {
     "superadmin": _ALL,
     "owner": _ALL,
     "director": _ALL - {"users", "migrate"},
-    "regional": {"dash", "stores.view", "plans.edit", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance"},
-    "store_manager": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance"},
+    "regional": {"dash", "stores.view", "plans.edit", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance", "expenses"},
+    "store_manager": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "docs.create", "docs.approve", "sales", "finance", "expenses"},
     "warehouse": {"catalog.view", "stock", "docs.view", "docs.create"},
     "cashier": {"dash", "sales"},
     "analyst": {"dash", "stores.view", "catalog.view", "stock", "docs.view", "sales", "finance", "audit"},
@@ -61,6 +61,11 @@ RULES = [
     ("GET", r"^/api/docs", "docs.view"),
     ("*", r"^/api/docs", "docs.create"),
     ("GET", r"^/api/sales_report$", "sales"),
+    ("GET", r"^/api/an/", "sales"),
+    ("POST", r"^/api/fin/expenses", "expenses"),
+    ("DELETE", r"^/api/fin/expenses", "expenses"),
+    ("GET", r"^/api/fin/", "finance"),
+    ("*", r"^/api/fin/", "expenses"),
     ("*", r"^/api/migrate", "migrate"),
     ("GET", r"^/api/update/info$", "stores.view"),
 ]
