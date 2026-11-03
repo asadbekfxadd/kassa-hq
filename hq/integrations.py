@@ -102,6 +102,15 @@ class Telegram(Adapter):
                 chats[str(ch["id"])] = ch.get("title") or " ".join(x for x in (ch.get("first_name"), ch.get("last_name")) if x) or ch.get("username") or ""
         return [{"id": k, "name": v} for k, v in chats.items()]
 
+    def send_file(self, cfg, path, caption):
+        with open(path, "rb") as f:
+            r = requests.post(self._url(cfg, "sendDocument"), data={"chat_id": cfg["chat_id"].strip(), "caption": caption[:1000]},
+                              files={"document": (os.path.basename(path), f, "application/zip")}, timeout=120)
+        js = r.json()
+        if not js.get("ok"):
+            raise RuntimeError(js.get("description") or f"HTTP {r.status_code}")
+        return "ok"
+
     def send(self, kind, payload, cfg):
         r = requests.post(self._url(cfg, "sendMessage"), json={"chat_id": cfg["chat_id"].strip(), "text": payload["text"][:4000],
                                                                "parse_mode": "HTML", "disable_web_page_preview": True}, timeout=20)
@@ -400,6 +409,9 @@ def worker():
                 tick_alerts()
                 last_alert = time.time()
             run_due()
+            if getattr(H, "backup", None):
+                H.backup.tick()
+            H.salescache.warm()
         except Exception as e:      # фоновый поток не должен падать
             print("integrations worker:", e)
         time.sleep(20)
@@ -482,6 +494,8 @@ def int_save(key):
     c = H.con()
     if c.execute("SELECT 1 FROM integrations WHERE key=?", (key,)).fetchone():
         c.execute("UPDATE integrations SET enabled=?, settings=?, updated_at=? WHERE key=?", (enabled, json.dumps(cfg, ensure_ascii=False), t, key))
+        if cfg != row["cfg"]:       # настройки изменились — прошлая ошибка к ним уже не относится
+            c.execute("UPDATE integrations SET last_error=NULL WHERE key=?", (key,))
     else:
         c.execute("INSERT INTO integrations(key,enabled,settings,updated_at) VALUES(?,?,?,?)", (key, enabled, json.dumps(cfg, ensure_ascii=False), t))
     H.rbac.audit("Интеграция: настройки", f"{a.title}: {'включена' if enabled else 'выключена'}" + (f" ({why})" if enabled and not ok else "")

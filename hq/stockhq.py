@@ -42,19 +42,13 @@ def build():
     ph = ",".join("?" * len(stores))
     ids = tuple(stores)
     since = {d: (now - timedelta(days=d)).strftime("%Y-%m-%d %H:%M:%S") for d in (7, 30)}
-    sold = {}
-    for r in H.q(f"""SELECT s.store_id, si.product_uid,
-                     COALESCE(SUM(CASE WHEN s.operation='sale' THEN si.qty ELSE -si.qty END),0) q30,
-                     COALESCE(SUM(CASE WHEN s.created_at>=? THEN (CASE WHEN s.operation='sale' THEN si.qty ELSE -si.qty END) ELSE 0 END),0) q7
-                     FROM sale_items si JOIN sales s ON s.uid=si.sale_uid
-                     WHERE s.created_at>=? AND s.store_id IN ({ph}) GROUP BY s.store_id, si.product_uid""", (since[7], since[30]) + ids):
-        sold[(r["store_id"], r["product_uid"])] = (r["q30"] or 0, r["q7"] or 0)
+    sold = {(sid, pu): (v[2], v[0]) for (sid, pu), v in H.salescache.sold().items() if sid in stores}
     t = (request.args.get("q") or "").strip().lower()
     cat = request.args.get("category") or ""
     brand = request.args.get("brand") or ""
     fin = H.rbac.can("finance")
     prods = H.q("SELECT uid, name, barcode, sku, category, brand, min_stock, cost_price, price, unit_name FROM products WHERE active=1")
-    stock = {(r["store_id"], r["product_uid"]): r["qty"] for r in H.q(f"SELECT store_id, product_uid, qty FROM stock WHERE store_id IN ({ph})", ids)}
+    stock = {k: v for k, v in H.salescache.stock().items() if k[0] in stores}
     items, counts = [], {k: 0 for k in STATUS}
     for p in prods:
         if t and t not in (p["name"] or "").lower() and t not in (p["barcode"] or "") and t not in (p["sku"] or "").lower():

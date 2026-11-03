@@ -32,7 +32,7 @@ PERMS = {
     "docs.approve": "Перемещения: согласование и закрытие", "expenses": "Расходы: внесение и удаление",
     "staff": "Персонал: просмотр и KPI", "staff.edit": "Персонал: приём, изменение, ПИН кассы, оклады",
     "crm": "Клиенты: база и аналитика", "crm.edit": "Клиенты: изменение контактов", "loyalty": "Уровни лояльности сети",
-    "integrations": "Интеграции: настройка и журнал обмена", "ai": "AI-помощник", "migrate": "Переезд данных", "audit": "Журнал действий",
+    "integrations": "Интеграции: настройка и журнал обмена", "backup": "Резервные копии базы", "ai": "AI-помощник", "migrate": "Переезд данных", "audit": "Журнал действий",
 }
 _ALL = set(PERMS)
 ROLE_PERMS = {
@@ -68,6 +68,7 @@ RULES = [
     ("GET", r"^/api/sales_report$", "sales"),
     ("GET", r"^/api/an/", "sales"),
     ("*", r"^/api/integrations", "integrations"),
+    ("*", r"^/api/backups", "backup"),
     ("*", r"^/api/ai/", "ai"),
     ("GET", r"^/api/staff", "staff"),
     ("*", r"^/api/staff", "staff.edit"),
@@ -176,7 +177,7 @@ def login():
     lg, pw = (d.get("login") or "").strip().lower(), d.get("password") or ""
     if not lg:
         hq_pw = os.environ.get("HQ_PASSWORD", "admin")
-        if pw != hq_pw:
+        if not H.security.same(pw, hq_pw):
             return H.err("Неверный пароль", 401)
         session.clear()
         session.permanent = True

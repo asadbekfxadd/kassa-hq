@@ -263,7 +263,7 @@ def staff_kpi(f, t, store=None, uids=None):
             COALESCE(SUM(CASE WHEN s.operation='refund' THEN s.total ELSE 0 END),0) refunds_sum,
             COALESCE(SUM(CASE WHEN s.operation='sale' THEN s.discount ELSE 0 END),0) discount
             FROM sales s WHERE {w} GROUP BY s.cashier_uid""", args)}
-    for r in H.q(f"""SELECT s.cashier_uid u, COUNT(*) lines, COALESCE(SUM(si.qty),0) units FROM sale_items si JOIN sales s ON s.uid=si.sale_uid
+    for r in H.q(f"""SELECT s.cashier_uid u, COALESCE(SUM(s.items_n),0) lines, COALESCE(SUM(s.units),0) units FROM sales s
                      WHERE {w} AND s.operation='sale' GROUP BY s.cashier_uid""", args):
         if r["u"] in k:
             k[r["u"]].update(lines=r["lines"], units=r["units"])

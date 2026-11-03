@@ -104,12 +104,9 @@ def stock_rows():
         return [], st
     ids = tuple(st)
     ph = ",".join("?" * len(ids))
-    since = (H.tnow() - timedelta(days=30)).strftime(F)
-    sold = {(r["store_id"], r["product_uid"]): r["q"] or 0 for r in H.q(f"""SELECT s.store_id, si.product_uid,
-              SUM(CASE WHEN s.operation='sale' THEN si.qty ELSE -si.qty END) q FROM sale_items si JOIN sales s ON s.uid=si.sale_uid
-              WHERE s.created_at>=? AND s.store_id IN ({ph}) GROUP BY s.store_id, si.product_uid""", (since,) + ids)}
+    sold = {(sid, pu): v[2] for (sid, pu), v in H.salescache.sold().items() if sid in st and v[4]}
     prods = {p["uid"]: p for p in H.q("SELECT uid, name, category, min_stock, cost_price, unit_name FROM products WHERE active=1")}
-    stock = {(r["store_id"], r["product_uid"]): r["qty"] for r in H.q(f"SELECT store_id, product_uid, qty FROM stock WHERE store_id IN ({ph})", ids)}
+    stock = {k: v for k, v in H.salescache.stock().items() if k[0] in st}
     out = []
     for key in set(stock) | set(sold):
         sid, pu = key

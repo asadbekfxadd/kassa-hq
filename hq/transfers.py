@@ -180,7 +180,27 @@ def in_transit(c, ids):
     return out
 
 
+_REC = {}
+
+
 def recommend(window=30, target=14, keep=7, min_qty=1, category="", only_from=None, only_to=None):
+    """С кэшем на минуту: пересчёт, если изменились документы (перемещения в пути) или прошла минута."""
+    import time as _t
+    ver = H.q("SELECT COUNT(*) n, MAX(updated_at) m FROM docs", one=True)
+    key = (window, target, keep, min_qty, category, only_from, only_to, tuple(H.rbac.store_ids() or ()) if H.rbac.store_ids() is not None else None,
+           ver["n"], ver["m"])
+    hit = _REC.get(key)
+    H.salescache.sold(), H.salescache.stock()          # прогреть до сверки версии
+    if hit and _t.time() - hit[0] < 60 and hit[1] == H.salescache.VER[0]:
+        return hit[2]
+    res = _recommend(window, target, keep, min_qty, category, only_from, only_to)
+    if len(_REC) > 50:
+        _REC.clear()
+    _REC[key] = (_t.time(), H.salescache.VER[0], res)
+    return res
+
+
+def _recommend(window=30, target=14, keep=7, min_qty=1, category="", only_from=None, only_to=None):
     now = H.tnow()
     fi, fia = H.rbac.sf("id")
     stores = {s["id"]: s["name"] for s in H.q(f"SELECT id, name FROM stores WHERE active=1{fi}", fia)}
@@ -189,16 +209,9 @@ def recommend(window=30, target=14, keep=7, min_qty=1, category="", only_from=No
     ids = tuple(stores)
     ph = ",".join("?" * len(ids))
     since = {k: (now - timedelta(days=k)).strftime(F) for k in (7, 14, 30, 60)}
-    sold = {}
-    for r in H.q(f"""SELECT s.store_id, si.product_uid,
-                     SUM(CASE WHEN s.created_at>=? THEN (CASE WHEN s.operation='sale' THEN si.qty ELSE -si.qty END) ELSE 0 END) d7,
-                     SUM(CASE WHEN s.created_at>=? THEN (CASE WHEN s.operation='sale' THEN si.qty ELSE -si.qty END) ELSE 0 END) d14,
-                     SUM(CASE WHEN s.created_at>=? THEN (CASE WHEN s.operation='sale' THEN si.qty ELSE -si.qty END) ELSE 0 END) d30,
-                     SUM(CASE WHEN s.operation='sale' THEN si.qty ELSE -si.qty END) d60
-                     FROM sale_items si JOIN sales s ON s.uid=si.sale_uid WHERE s.created_at>=? AND s.store_id IN ({ph})
-                     GROUP BY s.store_id, si.product_uid""", (since[7], since[14], since[30], since[60]) + ids):
-        sold[(r["store_id"], r["product_uid"])] = {k: max(0, r[k] or 0) for k in ("d7", "d14", "d30", "d60")}
-    stock = {(r["store_id"], r["product_uid"]): r["qty"] for r in H.q(f"SELECT store_id, product_uid, qty FROM stock WHERE store_id IN ({ph})", ids)}
+    sold = {(sid, pu): {"d7": max(0, v[0]), "d14": max(0, v[1]), "d30": max(0, v[2]), "d60": max(0, v[3])}
+            for (sid, pu), v in H.salescache.sold().items() if sid in stores}
+    stock = {k: v for k, v in H.salescache.stock().items() if k[0] in stores}
     c = H.con()
     transit = in_transit(c, ids)
     c.close()

@@ -53,10 +53,13 @@ CREATE TABLE IF NOT EXISTS sales (
   created_at TEXT, operation TEXT, total REAL, cash REAL, card REAL, debt REAL DEFAULT 0, discount REAL DEFAULT 0,
   cashier TEXT, fiscal_status TEXT, receipt_seq INTEGER);
 CREATE INDEX IF NOT EXISTS ix_s_store_date ON sales(store_id, created_at);
+CREATE INDEX IF NOT EXISTS ix_s_date ON sales(created_at);
 CREATE TABLE IF NOT EXISTS sale_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT, sale_uid TEXT NOT NULL, product_uid TEXT, name TEXT, qty REAL,
   price REAL, total REAL, cost_price REAL);
 CREATE INDEX IF NOT EXISTS ix_si_sale ON sale_items(sale_uid);
+CREATE INDEX IF NOT EXISTS ix_si_prod ON sale_items(product_uid);
+CREATE INDEX IF NOT EXISTS ix_stock_prod ON stock(product_uid);
 CREATE TABLE IF NOT EXISTS docs (
   id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT UNIQUE NOT NULL, number TEXT, type TEXT NOT NULL,
   status TEXT NOT NULL, from_store_id INTEGER, to_store_id INTEGER NOT NULL, supplier TEXT, note TEXT,
@@ -178,13 +181,21 @@ def init():
                      ("stores.city", "TEXT"), ("brand", "TEXT"),
                      ("sales.qr", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"), ("sales.qr_provider", "TEXT"),
                      ("sales.promo_disc", "DOUBLE PRECISION DEFAULT 0" if PG else "REAL DEFAULT 0"),
-                     ("sales.cashier_uid", "TEXT"), ("sales.customer_uid", "TEXT")):
+                     ("sales.cashier_uid", "TEXT"), ("sales.customer_uid", "TEXT"),
+                     ("sales.cost_total", "DOUBLE PRECISION" if PG else "REAL"), ("sales.items_n", "INTEGER"),
+                     ("sales.units", "DOUBLE PRECISION" if PG else "REAL")):
         tbl, col = col.split(".") if "." in col else ("products", col)
         try:
             c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {typ}")
             c.commit()
         except Exception:
             c.rollback() if hasattr(c, "rollback") else None
+    # итоги чека для быстрых отчётов (без соединения с позициями): один раз для старых продаж
+    if c.execute("SELECT 1 FROM sales WHERE cost_total IS NULL LIMIT 1").fetchone():
+        c.execute("""UPDATE sales SET cost_total=t.c, items_n=t.n, units=t.u FROM (SELECT sale_uid, SUM(qty*COALESCE(cost_price,0)) c,
+                     COUNT(*) n, SUM(qty) u FROM sale_items GROUP BY sale_uid) t WHERE t.sale_uid=sales.uid AND sales.cost_total IS NULL""")
+        c.execute("UPDATE sales SET cost_total=0, items_n=0, units=0 WHERE cost_total IS NULL")
+        c.commit()
     c.close()
 
 
@@ -762,11 +773,15 @@ def sync():
             continue
         if not c.execute("SELECT 1 FROM sales WHERE uid=?", (s["uid"],)).fetchone():
             c.execute("""INSERT INTO sales(uid,store_id,local_id,created_at,operation,total,cash,card,debt,discount,cashier,
-                         fiscal_status,receipt_seq,qr,qr_provider,promo_disc,cashier_uid,customer_uid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                         fiscal_status,receipt_seq,qr,qr_provider,promo_disc,cashier_uid,customer_uid,cost_total,items_n,units)
+                         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                       (s["uid"], st["id"], s.get("id"), s.get("created_at"), s.get("operation"), num(s.get("total")),
                        num(s.get("cash")), num(s.get("card")), num(s.get("debt")), num(s.get("discount")),
                        s.get("cashier"), s.get("fiscal_status"), s.get("receipt_seq"), num(s.get("qr")), s.get("qr_provider"),
-                       num(s.get("promo_disc")), s.get("cashier_uid"), s.get("customer_uid")))
+                       num(s.get("promo_disc")), s.get("cashier_uid"), s.get("customer_uid"),
+                       sum(num(i.get("qty")) * num(i.get("cost_price")) for i in s.get("items") or []), len(s.get("items") or []),
+                       sum(num(i.get("qty")) for i in s.get("items") or [])))
+            salescache.add_sale(st["id"], s.get("created_at"), s.get("operation"), s.get("items"))
             for it in s.get("items") or []:
                 c.execute("INSERT INTO sale_items(sale_uid,product_uid,name,qty,price,total,cost_price) VALUES(?,?,?,?,?,?,?)",
                           (s["uid"], it.get("product_uid"), it.get("name"), num(it.get("qty")), num(it.get("price")),
@@ -793,6 +808,7 @@ def sync():
             c.execute("""INSERT INTO stock(store_id,product_uid,qty,updated_at) VALUES(?,?,?,?)
                          ON CONFLICT(store_id,product_uid) DO UPDATE SET qty=excluded.qty, updated_at=excluded.updated_at""",
                       (st["id"], r["uid"], num(r.get("qty")), t))
+            salescache.set_stock(st["id"], r["uid"], num(r.get("qty")))
 
     # ---- накладные от кассы: принятые и отправленные
     for dc in d.get("docs") or []:
@@ -945,6 +961,10 @@ def health():
 import sys  # noqa: E402
 import rbac  # noqa: E402
 rbac.register(sys.modules[__name__])
+import salescache  # noqa: E402
+salescache.register(sys.modules[__name__])
+import security  # noqa: E402
+security.register(sys.modules[__name__])
 import migrate  # noqa: E402
 migrate.register(sys.modules[__name__])
 import hqdash  # noqa: E402
@@ -963,12 +983,21 @@ import integrations  # noqa: E402
 integrations.register(sys.modules[__name__])
 import assistant  # noqa: E402
 assistant.register(sys.modules[__name__])
+import backup  # noqa: E402
+backup.register(sys.modules[__name__])
+import apidoc  # noqa: E402
+apidoc.register(sys.modules[__name__])
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     print(f"\n  ЦЕНТР запущен: http://127.0.0.1:{port}  (пароль: переменная HQ_PASSWORD, по умолчанию admin)\n")
     try:
         from waitress import serve
-        serve(app, host="0.0.0.0", port=port, threads=8)
+        if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("TRUST_PROXY"):
+            # за прокси Railway: настоящий адрес клиента и https берём из заголовков прокси (один доверенный прокси)
+            serve(app, host="0.0.0.0", port=port, threads=8, trusted_proxy="*", trusted_proxy_count=1,
+                  trusted_proxy_headers={"x-forwarded-for", "x-forwarded-proto"}, clear_untrusted_proxy_headers=True)
+        else:
+            serve(app, host="0.0.0.0", port=port, threads=8)
     except ImportError:
         app.run(host="0.0.0.0", port=port)

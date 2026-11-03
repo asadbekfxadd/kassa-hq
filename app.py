@@ -104,13 +104,28 @@ def index():
 
 
 # ---------------------------------------------------------------- auth
+_PIN_FAILS = []          # время неудачных попыток ПИН (касса одна — счётчик общий)
+_PIN_BLOCK = {"until": 0}
+
+
 @app.post("/api/login")
 def login():
+    import time as _t
+    now = _t.time()
+    if _PIN_BLOCK["until"] > now:
+        return err(f"Слишком много неверных ПИН. Подождите {int(_PIN_BLOCK['until'] - now) + 1} сек.", 429)
     pin = str((request.json or {}).get("pin", "")).strip()
     u = q("SELECT id,name,role FROM users WHERE pin=? AND active=1", (pin,), one=True)
     if not u:
+        _PIN_FAILS[:] = [x for x in _PIN_FAILS if now - x < 300] + [now]
         extras.audit("Неудачная попытка входа", "", 1, 0)
+        if len(_PIN_FAILS) >= 5:     # 5 ошибок за 5 минут → пауза 2 минуты
+            _PIN_BLOCK["until"] = now + 120
+            _PIN_FAILS.clear()
+            extras.audit("Вход заблокирован на 2 минуты", "5 неверных ПИН подряд", 2, 0)
+            return err("Слишком много неверных ПИН. Вход заблокирован на 2 минуты.", 429)
         return err("Неверный PIN", 401)
+    _PIN_FAILS.clear()
     session.permanent = True
     session["uid"] = u["id"]
     extras.audit("Вход в систему", u["name"], 0, u["id"])

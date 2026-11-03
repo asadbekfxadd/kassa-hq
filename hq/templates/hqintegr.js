@@ -1,8 +1,8 @@
 // =====================================================================
 //  Центр сети (этап 8): AI-помощник и Интеграции.
 // =====================================================================
-Object.assign(NAV_PERM,{ai:'ai',integr:'integrations'});
-Object.assign(TITLES,{ai:'AI-помощник',integr:'Интеграции'});
+Object.assign(NAV_PERM,{ai:'ai',integr:'integrations',backup:'backup'});
+Object.assign(TITLES,{ai:'AI-помощник',integr:'Интеграции',backup:'Резервные копии'});
 let AI_INFO=null, AI_LOG=[], INT=null;
 const ST_B={error:['err','Ошибка связи'],active:['ok','Работает'],off:['','Выключена'],inactive:['pend','Нужен ключ'],prepared:['','Ждёт документацию'],builtin:['blue','Встроено']};
 const JOB_B={done:['ok','Отправлено'],queued:['blue','В очереди'],retry:['pend','Повтор'],dead:['err','Не доставлено'],running:['blue','Отправляется']};
@@ -23,21 +23,23 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 (function(){
   $('#nav button[data-v=dash]').insertAdjacentHTML('afterend',`<button data-v="ai" title="AI-помощник"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg><span class="t">AI-помощник</span></button>`);
   $('#nav button[data-v=users]').insertAdjacentHTML('beforebegin',`<button data-v="integr" title="Интеграции"><svg viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M7 8h10v4a5 5 0 0 1-10 0z"/><path d="M12 17v5"/></svg><span class="t">Интеграции</span></button>`);
-  ['ai','integr'].forEach(v=>$(`#nav button[data-v=${v}]`).onclick=()=>show(v));
+  $('#nav button[data-v=users]').insertAdjacentHTML('beforebegin',`<button data-v="backup" title="Резервные копии"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg><span class="t">Резервные копии</span></button>`);
+  ['ai','integr','backup'].forEach(v=>$(`#nav button[data-v=${v}]`).onclick=()=>show(v));
   $('main').insertAdjacentHTML('beforeend',`
     <section class="view" id="v-ai"><div class="chat"><div id="aiLog"></div><div class="dock"><div class="sugg" id="aiSugg"></div>
       <div class="askbar"><input id="aiQ" placeholder="Спросите о продажах, остатках, плане, прибыли…" autocomplete="off"><button class="p" id="aiGo">Спросить</button></div>
       <div class="muted" style="font-size:12px;text-align:center;padding-bottom:6px" id="aiNote"></div></div></div></section>
+    <section class="view" id="v-backup"><div id="bkBody"></div></section>
     <section class="view" id="v-integr"><div class="dtool"><div class="seg" id="inTabs"><button data-t="cards" class="on">Подключения</button><button data-t="log">Журнал обмена</button></div></div><div id="inBody"></div></section>`);
   $$('#inTabs button').forEach(b=>b.onclick=()=>{ $$('#inTabs button').forEach(x=>x.classList.toggle('on',x===b)); b.dataset.t==='log'?intLog():loadInt(); });
   $('#aiGo').onclick=()=>aiAsk($('#aiQ').value); $('#aiQ').onkeydown=e=>{ if(e.key==='Enter') aiAsk($('#aiQ').value); };
 })();
 const _showI=show;
-show=function(v){ if(v==='ai'||v==='integr'){ if(!can(NAV_PERM[v])) return toast('Нет доступа к разделу','err');
+show=function(v){ if(v==='ai'||v==='integr'||v==='backup'){ if(!can(NAV_PERM[v])) return toast('Нет доступа к разделу','err');
     $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v)); $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); $('#pageTitle').textContent=TITLES[v];
-    return v==='ai'?loadAi():($$('#inTabs button').forEach((x,i)=>x.classList.toggle('on',!i)),loadInt()); }
+    return v==='ai'?loadAi():v==='backup'?loadBackups():($$('#inTabs button').forEach((x,i)=>x.classList.toggle('on',!i)),loadInt()); }
   _showI(v); };
-const _bootI=boot; boot=async function(){ await _bootI(); ['ai','integr'].forEach(v=>$(`#nav button[data-v=${v}]`)?.classList.toggle('hidden',!can(NAV_PERM[v])));
+const _bootI=boot; boot=async function(){ await _bootI(); ['ai','integr','backup'].forEach(v=>$(`#nav button[data-v=${v}]`)?.classList.toggle('hidden',!can(NAV_PERM[v])));
   $$('#nav .grp').forEach(g=>{ let n=g.nextElementSibling, any=false; while(n&&!n.classList.contains('grp')){ if(!n.classList.contains('hidden')) any=true; n=n.nextElementSibling; } g.classList.toggle('hidden',!any); }); };
 
 // ================================================================ AI-помощник
@@ -74,7 +76,8 @@ async function loadInt(){
   const B=$('#inBody'); B.innerHTML='<div class="pad muted">Загрузка…</div>';
   INT=(await api('/api/integrations')).items;
   B.innerHTML=`<div class="card" style="margin-bottom:12px;background:var(--brand-50);border-color:#dbeafe;font-size:13.5px">У каждой интеграции — свой модуль, журнал обмена и повторная отправка при ошибке (через 1 мин, 5 мин, 30 мин, 2 ч, 6 ч).
-      Подключения, для которых нет ключей или документации сервиса, подготовлены и помечены — данные через них не отправляются, пока подключение не проверено.</div>
+      Подключения, для которых нет ключей или документации сервиса, подготовлены и помечены — данные через них не отправляются, пока подключение не проверено.
+      <a href="/api-docs" target="_blank" style="margin-left:6px">Документация API →</a></div>
     <div class="ig">${INT.map(x=>{ const b=ST_B[x.state];
       return `<div class="card ic"><div class="hd"><div class="ico">${INT_ICON[x.key]||'🔌'}</div><b class="grow" style="font-size:15px">${esc(x.title)}</b><span class="badge ${b[0]}">${b[1]}</span></div>
         <div class="ds">${esc(x.desc)}</div>
@@ -146,4 +149,19 @@ async function uzumPreview(){
     modal(`<h3>Витрина Uzum Market — предпросмотр</h3><p class="muted" style="margin-top:0;font-size:13px">${esc(r.note)}</p><div style="max-height:420px;overflow:auto"><table><thead><tr><th>Товар</th><th>Штрихкод</th><th>Артикул</th><th class="n">Цена</th><th class="n">Остаток</th></tr></thead><tbody>
       ${r.items.map(p=>`<tr><td>${esc(p.name)}</td><td class="muted">${esc(p.barcode||'')}</td><td>${esc(p.sku||'')}</td><td class="n">${fmt(p.price)}</td><td class="n">${fq(p.qty)}</td></tr>`).join('')||'<tr><td class="muted">Нет товаров в наличии</td></tr>'}</tbody></table></div>
       <div class="actions"><button class="p" onclick="closeM()">Закрыть</button></div>`,'wide'); }catch(e){ toast(e.message,'err'); }
+}
+
+// ================================================================ Резервные копии
+async function loadBackups(){
+  const B=$('#bkBody'); B.innerHTML='<div class="pad muted">Загрузка…</div>';
+  const r=await api('/api/backups'); const sz=v=>v>1048576?(v/1048576).toFixed(1).replace('.',',')+' МБ':Math.max(1,Math.round(v/1024))+' КБ';
+  B.innerHTML=`<div class="card" style="margin-bottom:12px"><div class="row"><div class="grow"><b>Копия всей базы Центра</b><div class="muted" style="font-size:13px;margin-top:2px">Каждый день в 03:00 автоматически, хранятся ${r.keep} последних.
+      ${r.telegram?'Каждая копия также уходит в ваш Telegram — она хранится вне сервера.':'Подключите Telegram в «Интеграциях» — копии будут уходить и туда, вне сервера.'}
+      Кассы делают свои копии сами (папка data/backups на компьютере магазина).</div></div><button class="p" id="bkNow">Сделать копию сейчас</button></div></div>
+    <div class="card"><table><thead><tr><th>Дата</th><th>Как</th><th class="n">Записей</th><th class="n">Размер</th><th></th></tr></thead><tbody>
+      ${r.items.map(x=>`<tr><td>${esc(x.created_at||x.name)}</td><td>${x.reason==='auto'?'автоматически':'вручную'}</td><td class="n">${fmt(x.rows)}</td><td class="n">${sz(x.size)}</td>
+        <td><a href="/api/backups/${encodeURIComponent(x.name)}"><button class="ghost">⬇ Скачать</button></a></td></tr>`).join('')||'<tr><td colspan="5" class="muted pad">Копий ещё нет — первая будет сегодня ночью, или сделайте её сейчас.</td></tr>'}</tbody></table>
+      <div class="muted" style="font-size:12.5px;margin-top:10px">Восстановление делается с сервера командой <code>python hq/backup.py restore копия.zip</code> — так его нельзя запустить случайно. Порядок описан в docs/DEPLOY.md.</div></div>`;
+  $('#bkNow').onclick=async()=>{ const b=$('#bkNow'); b.disabled=true; b.textContent='Создаю…';
+    try{ const x=await api('/api/backups',{method:'POST'}); toast(`Копия создана: ${fmt(x.rows)} записей`+(x.sent==='telegram'?' · отправлена в Telegram':''),'ok'); }catch(e){ toast(e.message,'err'); } loadBackups(); };
 }

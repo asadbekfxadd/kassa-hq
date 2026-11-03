@@ -75,7 +75,19 @@ def where_items(fl):
 ITEMS = "FROM sale_items si JOIN sales s ON s.uid=si.sale_uid LEFT JOIN products p ON p.uid=si.product_uid"
 
 
+def fast(fl):
+    return not fl["category"] and not fl["brand"]
+
+
 def item_totals(fl):
+    if fast(fl):
+        w, a = where_sales(fl)
+        r = H.q(f"""SELECT COALESCE(SUM({SGN}*s.total),0) net, COALESCE(SUM({SGN}*COALESCE(s.units,0)),0) qty,
+                    COALESCE(SUM({SGN}*(s.total-COALESCE(s.cost_total,0))),0) profit, COUNT(CASE WHEN s.operation='sale' THEN 1 END) checks
+                    FROM sales s WHERE {w}""", a, one=True)
+        r["avg"] = round(r["net"] / r["checks"]) if r["checks"] else 0
+        r["margin"] = round(r["profit"] / r["net"] * 100, 1) if r["net"] else 0
+        return r
     w, a = where_items(fl)
     r = H.q(f"""SELECT COALESCE(SUM({SGN}*si.total),0) net, COALESCE(SUM({SGN}*si.qty),0) qty,
                 COALESCE(SUM({SGN}*(si.total-si.qty*COALESCE(si.cost_price,0))),0) profit, COUNT(DISTINCT CASE WHEN s.operation='sale' THEN s.uid END) checks
@@ -105,24 +117,43 @@ def sales_data(fl):
     cur, prev = item_totals(fl), item_totals(_prev(fl))
     chg = {k: (round((cur[k] - prev[k]) / abs(prev[k]) * 100, 1) if prev[k] else None) for k in ("net", "qty", "profit", "checks", "avg")}
     w, a = where_items(fl)
-    by_day = H.q(f"""SELECT substr(s.created_at,1,10) d, COALESCE(SUM({SGN}*si.total),0) net, COUNT(DISTINCT CASE WHEN s.operation='sale' THEN s.uid END) checks
-                    {ITEMS} WHERE {w} GROUP BY substr(s.created_at,1,10) ORDER BY d""", a)
-    by_store = H.q(f"""SELECT s.store_id, MAX(st.name) AS name, COALESCE(SUM({SGN}*si.total),0) net,
-                      COALESCE(SUM({SGN}*(si.total-si.qty*COALESCE(si.cost_price,0))),0) profit, COUNT(DISTINCT CASE WHEN s.operation='sale' THEN s.uid END) checks
-                      {ITEMS} JOIN stores st ON st.id=s.store_id WHERE {w} GROUP BY s.store_id ORDER BY net DESC""", a)
-    by_cat = H.q(f"""SELECT COALESCE(NULLIF(p.category,''),'Без категории') AS name, COALESCE(SUM({SGN}*si.total),0) net,
-                    COALESCE(SUM({SGN}*(si.total-si.qty*COALESCE(si.cost_price,0))),0) profit, COALESCE(SUM({SGN}*si.qty),0) qty
-                    {ITEMS} WHERE {w} GROUP BY COALESCE(NULLIF(p.category,''),'Без категории') ORDER BY net DESC""", a)
-    by_brand = H.q(f"""SELECT COALESCE(NULLIF(p.brand,''),'Без бренда') AS name, COALESCE(SUM({SGN}*si.total),0) net,
-                      COALESCE(SUM({SGN}*(si.total-si.qty*COALESCE(si.cost_price,0))),0) profit, COALESCE(SUM({SGN}*si.qty),0) qty
-                      {ITEMS} WHERE {w} GROUP BY COALESCE(NULLIF(p.brand,''),'Без бренда') ORDER BY net DESC""", a)
+    ws0, sa0 = where_sales(fl)
+    if fast(fl):
+        by_day = H.q(f"""SELECT substr(s.created_at,1,10) d, COALESCE(SUM({SGN}*s.total),0) net, COUNT(CASE WHEN s.operation='sale' THEN 1 END) checks
+                        FROM sales s WHERE {ws0} GROUP BY substr(s.created_at,1,10) ORDER BY d""", sa0)
+        by_store = H.q(f"""SELECT s.store_id, MAX(st.name) AS name, COALESCE(SUM({SGN}*s.total),0) net,
+                          COALESCE(SUM({SGN}*(s.total-COALESCE(s.cost_total,0))),0) profit, COUNT(CASE WHEN s.operation='sale' THEN 1 END) checks
+                          FROM sales s JOIN stores st ON st.id=s.store_id WHERE {ws0} GROUP BY s.store_id ORDER BY net DESC""", sa0)
+    else:
+        by_day = H.q(f"""SELECT substr(s.created_at,1,10) d, COALESCE(SUM({SGN}*si.total),0) net, COUNT(DISTINCT CASE WHEN s.operation='sale' THEN s.uid END) checks
+                        {ITEMS} WHERE {w} GROUP BY substr(s.created_at,1,10) ORDER BY d""", a)
+        by_store = H.q(f"""SELECT s.store_id, MAX(st.name) AS name, COALESCE(SUM({SGN}*si.total),0) net,
+                          COALESCE(SUM({SGN}*(si.total-si.qty*COALESCE(si.cost_price,0))),0) profit, COUNT(DISTINCT CASE WHEN s.operation='sale' THEN s.uid END) checks
+                          {ITEMS} JOIN stores st ON st.id=s.store_id WHERE {w} GROUP BY s.store_id ORDER BY net DESC""", a)
+    # категории и бренды — одним проходом по позициям
+    cb = H.q(f"""SELECT COALESCE(NULLIF(p.category,''),'Без категории') AS cat, COALESCE(NULLIF(p.brand,''),'Без бренда') AS br,
+                 COALESCE(SUM({SGN}*si.total),0) net, COALESCE(SUM({SGN}*(si.total-si.qty*COALESCE(si.cost_price,0))),0) profit,
+                 COALESCE(SUM({SGN}*si.qty),0) qty {ITEMS} WHERE {w}
+                 GROUP BY COALESCE(NULLIF(p.category,''),'Без категории'), COALESCE(NULLIF(p.brand,''),'Без бренда')""", a)
+
+    def roll(key):
+        acc = {}
+        for r in cb:
+            x = acc.setdefault(r[key], {"name": r[key], "net": 0, "profit": 0, "qty": 0})
+            for k in ("net", "profit", "qty"):
+                x[k] += r[k] or 0
+        return sorted(acc.values(), key=lambda x: -x["net"])
+    by_cat, by_brand = roll("cat"), roll("br")
     ws, sa = where_sales(fl)
     pay = H.q(f"""SELECT COALESCE(SUM({SGN}*s.cash),0) cash, COALESCE(SUM({SGN}*s.card),0) card, COALESCE(SUM({SGN}*COALESCE(s.qr,0)),0) qr,
                   COALESCE(SUM({SGN}*s.debt),0) debt, COALESCE(SUM(CASE WHEN s.operation='refund' THEN s.total ELSE 0 END),0) refunds,
                   COALESCE(SUM(CASE WHEN s.operation='sale' THEN s.discount ELSE 0 END),0) discount FROM sales s WHERE {ws}""", sa, one=True)
     heat = [[0] * 24 for _ in range(7)]
-    for r in H.q(f"""SELECT substr(s.created_at,1,10) d, CAST(substr(s.created_at,12,2) AS INTEGER) h, COALESCE(SUM({SGN}*si.total),0) net
-                     {ITEMS} WHERE {w} GROUP BY substr(s.created_at,1,10), CAST(substr(s.created_at,12,2) AS INTEGER)""", a):
+    hq_ = (f"""SELECT substr(s.created_at,1,10) d, CAST(substr(s.created_at,12,2) AS INTEGER) h, COALESCE(SUM({SGN}*s.total),0) net
+               FROM sales s WHERE {ws0} GROUP BY substr(s.created_at,1,10), CAST(substr(s.created_at,12,2) AS INTEGER)""", sa0) if fast(fl) else \
+          (f"""SELECT substr(s.created_at,1,10) d, CAST(substr(s.created_at,12,2) AS INTEGER) h, COALESCE(SUM({SGN}*si.total),0) net
+               {ITEMS} WHERE {w} GROUP BY substr(s.created_at,1,10), CAST(substr(s.created_at,12,2) AS INTEGER)""", a)
+    for r in H.q(*hq_):
         heat[datetime.strptime(r["d"], "%Y-%m-%d").weekday()][r["h"]] += r["net"]
     for lst in (by_store, by_cat, by_brand):
         for x in lst:
@@ -139,18 +170,23 @@ def products_data(fl, top=20):
     d0, d1 = datetime.strptime(fl["from"], "%Y-%m-%d"), datetime.strptime(fl["to"], "%Y-%m-%d")
     d1 = min(d1, H.tnow().replace(hour=0, minute=0, second=0, microsecond=0))   # будущие дни не размывают скорость продаж и XYZ
     days = max(1, (d1 - d0).days + 1)
-    rows = H.q(f"""SELECT si.product_uid uid, MAX(si.name) AS name, MAX(p.category) AS category, MAX(p.brand) AS brand,
-                   COALESCE(SUM({SGN}*si.qty),0) qty, COALESCE(SUM({SGN}*si.total),0) net,
-                   COALESCE(SUM({SGN}*(si.total-si.qty*COALESCE(si.cost_price,0))),0) profit
-                   {ITEMS} WHERE {w} GROUP BY si.product_uid""", a)
-    # XYZ: продажи по неделям (если период ≥ 4 недель) или по дням
+    # XYZ: продажи по неделям (если период ≥ 4 недель) или по дням; товары и ряды — одним проходом по позициям
     bucket = 7 if days >= 28 else 1
     nb = max(1, math.ceil(days / bucket))
-    series = {}
-    for r in H.q(f"""SELECT si.product_uid uid, substr(s.created_at,1,10) d, COALESCE(SUM({SGN}*si.qty),0) q {ITEMS} WHERE {w}
-                     GROUP BY si.product_uid, substr(s.created_at,1,10)""", a):
-        i = min(nb - 1, (datetime.strptime(r["d"], "%Y-%m-%d") - d0).days // bucket)
+    series, agg = {}, {}
+    pinfo = {p["uid"]: p for p in H.q("SELECT uid, name, category, brand FROM products")}
+    for r in H.q(f"""SELECT si.product_uid uid, substr(s.created_at,1,10) d, MAX(si.name) AS name, COALESCE(SUM({SGN}*si.qty),0) q,
+                     COALESCE(SUM({SGN}*si.total),0) net, COALESCE(SUM({SGN}*(si.total-si.qty*COALESCE(si.cost_price,0))),0) profit
+                     {ITEMS} WHERE {w} GROUP BY si.product_uid, substr(s.created_at,1,10)""", a):
+        i = max(0, min(nb - 1, (datetime.strptime(r["d"], "%Y-%m-%d") - d0).days // bucket))
         series.setdefault(r["uid"], [0.0] * nb)[i] += r["q"]
+        p = pinfo.get(r["uid"]) or {}
+        x = agg.setdefault(r["uid"], {"uid": r["uid"], "name": p.get("name") or r["name"], "category": p.get("category"), "brand": p.get("brand"),
+                                      "qty": 0, "net": 0, "profit": 0})
+        x["qty"] += r["q"] or 0
+        x["net"] += r["net"] or 0
+        x["profit"] += r["profit"] or 0
+    rows = list(agg.values())
     total = sum(max(0, r["net"]) for r in rows) or 1
     rows.sort(key=lambda r: -r["net"])
     acc = 0
@@ -220,25 +256,25 @@ def season_data(fl):
     start = datetime(now.year - 1, 1, 1)
     fl2 = {**fl, "a0": start.strftime(F), "a1": now.strftime("%Y-%m-%d") + " 23:59:59"}
     w, a = where_items(fl2)
-    months = {}
-    for r in H.q(f"""SELECT substr(s.created_at,1,7) m, COALESCE(SUM({SGN}*si.total),0) net, COALESCE(SUM({SGN}*si.qty),0) qty
-                     {ITEMS} WHERE {w} GROUP BY substr(s.created_at,1,7)""", a):
-        months[r["m"]] = r
+    months, cats = {}, {}
+    for r in H.q(f"""SELECT substr(s.created_at,1,7) m, COALESCE(NULLIF(p.category,''),'Без категории') AS cat, COALESCE(SUM({SGN}*si.total),0) net
+                     {ITEMS} WHERE {w} GROUP BY substr(s.created_at,1,7), COALESCE(NULLIF(p.category,''),'Без категории')""", a):
+        x = months.setdefault(r["m"], {"net": 0})
+        x["net"] += r["net"] or 0
+        cats.setdefault(r["cat"], [0.0] * 12)[int(r["m"][5:7]) - 1] += r["net"] or 0
     out = []
     for m in range(1, 13):
         c, p = months.get(f"{now.year}-{m:02d}", {}), months.get(f"{now.year - 1}-{m:02d}", {})
         out.append({"m": m, "label": MONTHS[m - 1], "cur": c.get("net", 0) if m <= now.month else None, "prev": p.get("net", 0),
                     "chg": round((c.get("net", 0) - p.get("net", 0)) / p["net"] * 100, 1) if p.get("net") and m <= now.month else None})
-    w2, a2 = where_items(fl)
+    w2, a2 = where_sales(fl) if fast(fl) else where_items(fl)
+    src = "FROM sales s" if fast(fl) else ITEMS
+    val = "s.total" if fast(fl) else "si.total"
     wd, hr = [0.0] * 7, [0.0] * 24
-    for r in H.q(f"""SELECT substr(s.created_at,1,10) d, CAST(substr(s.created_at,12,2) AS INTEGER) h, COALESCE(SUM({SGN}*si.total),0) net
-                     {ITEMS} WHERE {w2} GROUP BY substr(s.created_at,1,10), CAST(substr(s.created_at,12,2) AS INTEGER)""", a2):
+    for r in H.q(f"""SELECT substr(s.created_at,1,10) d, CAST(substr(s.created_at,12,2) AS INTEGER) h, COALESCE(SUM({SGN}*{val}),0) net
+                     {src} WHERE {w2} GROUP BY substr(s.created_at,1,10), CAST(substr(s.created_at,12,2) AS INTEGER)""", a2):
         wd[datetime.strptime(r["d"], "%Y-%m-%d").weekday()] += r["net"]
         hr[r["h"]] += r["net"]
-    cats = {}
-    for r in H.q(f"""SELECT substr(s.created_at,6,2) m, COALESCE(NULLIF(p.category,''),'Без категории') AS cat, COALESCE(SUM({SGN}*si.total),0) net
-                     {ITEMS} WHERE {w} GROUP BY substr(s.created_at,6,2), COALESCE(NULLIF(p.category,''),'Без категории')""", a):
-        cats.setdefault(r["cat"], [0.0] * 12)[int(r["m"]) - 1] += r["net"]
     peak = {c: MONTHS[max(range(12), key=lambda i: v[i])] for c, v in cats.items() if sum(v) > 0}
     return {"months": out, "weekday": [{"label": WD[i], "net": wd[i]} for i in range(7)], "hours": [{"label": str(h), "net": hr[h]} for h in range(24)],
             "years": [now.year - 1, now.year], "category_peak": peak,

@@ -570,6 +570,7 @@ def check(iid):
 
 @bp.post("/api/migrate/<int:iid>/apply")
 def apply(iid):
+    H.salescache.invalidate()       # история продаж меняет окна 7–60 дней
     if not owner_only():
         return H.err("Требуется вход", 401)
     return _run(iid, False)

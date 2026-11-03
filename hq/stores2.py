@@ -26,8 +26,8 @@ def metrics(store_ids, a0, a1):
                      FROM sales s WHERE s.store_id IN ({ph}) AND s.created_at BETWEEN ? AND ? GROUP BY s.store_id""",
                  tuple(store_ids) + (a0, a1)):
         out[r["store_id"]].update(net=r["net"] or 0, checks=r["checks"] or 0, refunds=r["refunds"] or 0, discount=r["discount"] or 0)
-    for r in H.q(f"""SELECT s.store_id, COALESCE(SUM({SGN}*(si.total-si.qty*COALESCE(si.cost_price,0))),0) profit,
-                     COALESCE(SUM({SGN}*si.qty),0) items FROM sale_items si JOIN sales s ON s.uid=si.sale_uid
+    for r in H.q(f"""SELECT s.store_id, COALESCE(SUM({SGN}*(s.total-COALESCE(s.cost_total,0))),0) profit,
+                     COALESCE(SUM({SGN}*COALESCE(s.units,0)),0) items FROM sales s
                      WHERE s.store_id IN ({ph}) AND s.created_at BETWEEN ? AND ? GROUP BY s.store_id""", tuple(store_ids) + (a0, a1)):
         out[r["store_id"]].update(profit=r["profit"] or 0, items=r["items"] or 0)
     for m in out.values():
