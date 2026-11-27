@@ -97,18 +97,44 @@ CREATE INDEX IF NOT EXISTS ix_audit_at ON audit(created_at);
 
 
 # ---------------------------------------------------------------- текущий пользователь
+def _stamp(secret):
+    """Отпечаток пароля: при смене пароля старые сессии перестают работать."""
+    import hashlib, hmac as _h
+    return _h.new(str(H.app.secret_key).encode(), str(secret).encode(), hashlib.sha256).hexdigest()[:24]
+
+
+def _shared_password():
+    """Общий пароль Super Admin. На сервере (Railway) без HQ_PASSWORD входа по нему нет."""
+    import os
+    pw = os.environ.get("HQ_PASSWORD", "")
+    if pw:
+        return pw
+    on_server = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("FORCE_HTTPS"))
+    return None if on_server else "admin"
+
+
 def load_user():
     if not session.get("owner"):
         return None
     uid = session.get("uid", 0)
     if not uid:     # вход по HQ_PASSWORD
+        pw = _shared_password()
+        if pw is None or not _h_same(session.get("pv", ""), _stamp(pw)):
+            return None
         return {"id": 0, "name": "Super Admin", "login": "", "role": "superadmin", "perms": sorted(_ALL), "stores": None}
-    u = H.q("SELECT id, name, login, role, active FROM users WHERE id=?", (uid,), one=True)
+    u = H.q("SELECT id, name, login, role, active, pw_hash FROM users WHERE id=?", (uid,), one=True)
     if not u or not u["active"] or u["role"] not in ROLES:
+        return None
+    if not _h_same(session.get("pv", ""), _stamp(u.pop("pw_hash") or "")):
         return None
     u["perms"] = sorted(ROLE_PERMS[u["role"]])
     u["stores"] = None if u["role"] in ALL_STORES else [r["store_id"] for r in H.q("SELECT store_id FROM user_stores WHERE user_id=?", (uid,))]
     return u
+
+
+def _h_same(a, b):
+    import hmac as _h
+    return _h.compare_digest(str(a).encode(), str(b).encode())
 
 
 def user():
@@ -176,12 +202,14 @@ def login():
     d = request.json or {}
     lg, pw = (d.get("login") or "").strip().lower(), d.get("password") or ""
     if not lg:
-        hq_pw = os.environ.get("HQ_PASSWORD", "admin")
+        hq_pw = _shared_password()
+        if hq_pw is None:
+            return H.err("Общий пароль не задан: добавьте переменную HQ_PASSWORD на сервере или войдите по логину", 503)
         if not H.security.same(pw, hq_pw):
             return H.err("Неверный пароль", 401)
         session.clear()
         session.permanent = True
-        session.update(owner=1, uid=0)
+        session.update(owner=1, uid=0, pv=_stamp(hq_pw))
         g.user = load_user()
         audit("Вход", "Super Admin (общий пароль)")
         return jsonify(ok=True)
@@ -190,7 +218,7 @@ def login():
         return H.err("Неверный логин или пароль", 401)
     session.clear()
     session.permanent = True
-    session.update(owner=1, uid=u["id"])
+    session.update(owner=1, uid=u["id"], pv=_stamp(u["pw_hash"]))
     c = H.con()
     c.execute("UPDATE users SET last_login=? WHERE id=?", (H.now(), u["id"]))
     c.commit()
@@ -230,9 +258,11 @@ def change_password():
     if len(d.get("new") or "") < 6:
         return H.err("Новый пароль — не короче 6 символов")
     c = H.con()
-    c.execute("UPDATE users SET pw_hash=? WHERE id=?", (generate_password_hash(d["new"]), u["id"]))
+    new_hash = generate_password_hash(d["new"])
+    c.execute("UPDATE users SET pw_hash=? WHERE id=?", (new_hash, u["id"]))
     c.commit()
     c.close()
+    session["pv"] = _stamp(new_hash)  # текущий вход остаётся, остальные завершаются
     audit("Смена пароля", u["login"])
     return jsonify(ok=True)
 
